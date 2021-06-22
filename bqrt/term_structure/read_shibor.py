@@ -14,7 +14,7 @@ def read_shibor(path) -> pd.DataFrame:
     [Shibor Data Services](http://www.shibor.org/shibor/web/DataService.jsp) 
 
     Args:
-        path (str): [file path to folder containing Shibor xls files]
+        path (str): [file path containing Shibor xls files]
     """
     shibor_file_list = glob.glob(path+'\\*.xls')
     shibor_file_parts = [pd.read_excel(
