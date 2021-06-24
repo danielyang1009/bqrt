@@ -1,4 +1,5 @@
 *.pyc
 *.pyo
 *.egg-info/
+.vscode/
 __pycache__/
