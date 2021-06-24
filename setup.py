@@ -8,7 +8,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="bqrt",
-    version="0.0.1",
+    version="0.0.2",
     author="Daniel Yang",
     description="Basic Quantitative Research Toolbox",
     long_description=long_description,
@@ -17,12 +17,7 @@ setuptools.setup(
     project_urls={
         "Bug Tracker": "https://github.com/danielyang1009/bqrt/issues",
     },
-    install_requires=[
-        'numpy',
-        'pandas'
-    ],
-    # package_dir={"": "src"},
-    # packages=setuptools.find_packages(where="src"),
-    packages=setuptools.find_packages(exclude=['docs','tests']),
+    install_requires=['numpy', 'pandas'],
+    packages=setuptools.find_packages(exclude=['docs', 'tests']),
     python_requires=">=3.6",
 )

@@ -3,7 +3,6 @@
 import numpy as np
 import pandas as pd
 import glob
-from scipy.interpolate import interp1d
 
 
 def read_shibor(path) -> pd.DataFrame:
@@ -13,17 +12,24 @@ def read_shibor(path) -> pd.DataFrame:
 
     [Shibor Data Services](http://www.shibor.org/shibor/web/DataService.jsp) 
 
-    Args:
-        path (str): [file path containing Shibor xls files]
+    Parameters
+    ----------
+    path : string
+        File path containing Shibor xls files
+
+    Returns
+    -------
+    pd.DataFrame
+        Concatenate result of Shibor Data Services xls files
     """
 
-    shibor_file_list = glob.glob(path + "\\*.xls")
+    shibor_file_list = glob.glob(path + '\\*.xls')
     shibor_file_parts = [
         pd.read_excel(f, parse_dates=[0]) for f in shibor_file_list
     ]
     shibor_df = pd.concat(shibor_file_parts, ignore_index=True)
-    shibor_df["date"] = pd.to_datetime(
-        shibor_df["date"].dt.date)  # keep only date
+    shibor_df['date'] = pd.to_datetime(
+        shibor_df['date'].dt.date)  # keep only date
     return shibor_df
 
 
@@ -32,13 +38,19 @@ def shibor_linear_interp(shibor_df, date, maturity) -> float:
 
     Linear interpolation of Shibor Data Services xls files
 
-    Args:
-        shibor_df ([pd.DataFrame]): [Datafram from read_shibor]
-        date ([str]): [Date in string]
-        maturity ([type]): [maturity in year]
+    Parameters
+    ----------
+    shibor_df : pd.DataFrame
+        Dataframe from read_shibor()
+    date : string of date or Datetime object
+        Date to linear interpolation
+    maturity : float
+        Maturity(in year) to linear interpolation
 
-    Returns:
-        [float]: [linear interpolation result from input date and maturity]
+    Returns
+    -------
+    float
+        linear interpolation result from input date and maturity
     """
     maturity_list = [0, 7.0 / 365, 14.0 / 365, 1.0 / 12, 0.25, 0.5, 0.75, 1]
     term_stucture = shibor_df[shibor_df['date'] ==
