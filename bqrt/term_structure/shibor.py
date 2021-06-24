@@ -5,8 +5,6 @@ import pandas as pd
 import glob
 from scipy.interpolate import interp1d
 
-# from sklearn.linear_model import LinearRegression
-
 
 def read_shibor(path) -> pd.DataFrame:
     """Batch read Shibor xls files
