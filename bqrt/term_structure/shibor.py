@@ -8,7 +8,7 @@ import glob
 def read_shibor(path) -> pd.DataFrame:
     """Batch read Shibor xls files
 
-    Batch read xls files downlaod from Shibor Data Services, with columns of following structure of "date, O/N, 1W, 2W, 1M, 3M, 6M, 9M, 1Y" . For example "myproject\\raw\\shibor"
+    Batch read xls files downlaod from Shibor Data Services, with columns of following structure of "DATE, O/N, 1W, 2W, 1M, 3M, 6M, 9M, 1Y" . For example "myproject\\raw\\shibor"
 
     [Shibor Data Services](http://www.shibor.org/shibor/web/DataService.jsp) 
 
@@ -50,7 +50,7 @@ def shibor_linear_interp(shibor_df, date, maturity) -> float:
     Returns
     -------
     float
-        linear interpolation result from input date and maturity
+        Linear interpolation result from input date and maturity
     """
     maturity_list = [0, 7.0 / 365, 14.0 / 365, 1.0 / 12, 0.25, 0.5, 0.75, 1]
     term_stucture = shibor_df[shibor_df['date'] ==
