@@ -14,7 +14,17 @@ Lists of python packages maybe used in time series analysis
 
 [pyflux documentations](https://pyflux.readthedocs.io/en/latest/index.html)
 
-
 ## Quick Links
 
 [Shibor data download](http://www.shibor.org/shibor/web/DataService.jsp)
+
+## Using jupyter notebook `autoreload`
+
+[IPython `autoreload` Reference](https://ipython.readthedocs.io/en/stable/config/extensions/autoreload.html)
+
+This allow to use newest version of module as testing.
+
+```python
+%load_ext autoreload
+%autoreload 2
+```

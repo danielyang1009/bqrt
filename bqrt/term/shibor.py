@@ -5,10 +5,10 @@ import pandas as pd
 import glob
 
 
-def read_shibor(path) -> pd.DataFrame:
+def read_shibor_folder(path) -> pd.DataFrame:
     """Batch read Shibor xls files
 
-    Batch read xls files downlaod from Shibor Data Services, with columns of following structure of "DATE, O/N, 1W, 2W, 1M, 3M, 6M, 9M, 1Y" . For example "myproject\\raw\\shibor"
+    Batch read xls files downlaod from Shibor Data Services, with columns of following structure of "DATE, O/N, 1W, 2W, 1M, 3M, 6M, 9M, 1Y" . For example "myproject/raw/shibor/"
 
     [Shibor Data Services](http://www.shibor.org/shibor/web/DataService.jsp) 
 
@@ -22,12 +22,12 @@ def read_shibor(path) -> pd.DataFrame:
     pd.DataFrame
         Concatenate result of Shibor Data Services xls files
     """
-
-    shibor_file_list = glob.glob(path + '\\*.xls')
+    shibor_file_list = glob.glob(path + '/*.xls')
     shibor_file_parts = [
         pd.read_excel(f, parse_dates=[0]) for f in shibor_file_list
     ]
     shibor_df = pd.concat(shibor_file_parts, ignore_index=True)
+    shibor_df = shibor_df.rename(columns={'日期': 'date'})
     shibor_df['date'] = pd.to_datetime(
         shibor_df['date'].dt.date)  # keep only date
     return shibor_df
