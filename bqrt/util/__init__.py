@@ -2,6 +2,7 @@
 
 import pandas as pd
 import glob
+from .dist import *
 
 
 def slope_intercept(x1, y1, x2, y2):

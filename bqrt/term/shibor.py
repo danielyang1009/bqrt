@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 
-import numpy as np
 import pandas as pd
+from numpy import interp
+from scipy import interpolate
 import glob
+
+
+def test():
+    print(3)
 
 
 def read_shibor_folder(path) -> pd.DataFrame:
@@ -45,7 +50,7 @@ def shibor_linear_interp(shibor_df, date, maturity) -> float:
     date : string of date or Datetime object
         Date to linear interpolation
     maturity : float
-        Maturity(in year) to linear interpolation
+        Maturity(in year) to interpolation
 
     Returns
     -------
@@ -55,4 +60,33 @@ def shibor_linear_interp(shibor_df, date, maturity) -> float:
     maturity_list = [0, 7.0 / 365, 14.0 / 365, 1.0 / 12, 0.25, 0.5, 0.75, 1]
     term_stucture = shibor_df[shibor_df['date'] ==
                               date].values.flatten().tolist()[1:]
-    return np.interp(maturity, maturity_list, term_stucture)
+    return interp(maturity, maturity_list, term_stucture)
+
+
+def shibor_chs_interp(shibor_df, date, maturity) -> float:
+    """Cubic Hermite Spline interpolation of Shibor term structure
+    [Scipy](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.CubicHermiteSpline.html)
+    [Wikipedia](https://en.wikipedia.org/wiki/Cubic_Hermite_spline)
+
+    Linear interpolation of Shibor Data Services xls files
+
+    Parameters
+    ----------
+    shibor_df : pd.DataFrame
+        Dataframe from read_shibor()
+    date : string of date or Datetime object
+        Date to linear interpolation
+    maturity : float
+        Maturity(in year) to interpolation
+
+    Returns
+    -------
+    float
+        Cubic Hermite spline interpolation result from input date and maturity
+    """
+    # to be tested
+    maturity_list = [0, 7.0 / 365, 14.0 / 365, 1.0 / 12, 0.25, 0.5, 0.75, 1]
+    term_stucture = shibor_df[shibor_df['date'] ==
+                              date].values.flatten().tolist()[1:]
+    f = interpolate.CubicHermiteSpline(maturity_list, term_stucture)
+    return f(maturity)
