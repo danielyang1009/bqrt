@@ -41,8 +41,14 @@ This allow to use newest version of module as testing.
 
 ### Install package locally
 
-To bqrt folder, or create a 
+To bqrt folder, or create a environment, in editable mode or develop mode
 
 ```python
 pip install -e .
+```
+
+或者
+
+```python
+py -m pip install -e path/to/SomeProject
 ```
