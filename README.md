@@ -8,21 +8,14 @@ This package is built to assist my daily quantitative research, containing resea
 
 ## TODO
 
-- Newey-West 1987 t-statistic (adjust for serial correlation)
+- create an option class, method including BSIV, MFIV calculation
+- create time series class for (g)arch and do (quasi-)MLE estimate
 - Implied jump risk (Booleslev and Todorov 2011)
 - Implied skewnesss (Bakshi Kapadia and Madan 2003)
 - Volatility spread (Yan 2011)
 - Idiosyncratic volatility (Cao and Hand 2013)
 - Slop of the volatility term structure (Vasquez 2017)
 - ...
-
-## Working with time series models
-
-Lists of python packages maybe used in time series analysis
-
-[Using python to work with time series data](https://github.com/MaxBenChrist/awesome_time_series_in_python)
-
-[pyflux documentations](https://pyflux.readthedocs.io/en/latest/index.html)
 
 ## Quick Links
 

@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-from numpy import exp, log, sqrt
+from numpy import exp, log, sqrt, nan
 from scipy.stats import norm
+from scipy import optimize
 
 
 def black_price(F,K,r,T,sigma,cp_flag):
@@ -33,9 +34,8 @@ def bsm_vega(S,K,r,T,sigma):
     vega = S*norm.pdf(d1, 0.0, 1.0)*sqrt(T)
     return vega
 
-
-# old version, will encounter devide by zero error
-def black_impv_vol0(F,K,r,T,value,cp_flag):
+# old version 
+def black_impl_vol0(F,K,r,T,cp_mkt_value,cp_flag):
     MAX_ITERATIONS = 100
     PRECISION = 1.0e-5
     sigma = 0.5
@@ -43,23 +43,7 @@ def black_impv_vol0(F,K,r,T,value,cp_flag):
         # every iter calculate a new pair of price and vega
         price = black_price(F,K,r,T,sigma,cp_flag)
         vega = black_vega(F,K,r,T,sigma)
-        diff = price - value
-        if (abs(diff) < PRECISION):
-            return sigma
-        sigma = sigma - diff/vega
-        print(sigma)
-    return sigma
-
-
-def black_impl_vol(F,K,r,T,value,cp_flag):
-    MAX_ITERATIONS = 100
-    PRECISION = 1.0e-5
-    sigma = 0.5
-    for _ in range(MAX_ITERATIONS):
-        # every iter calculate a new pair of price and vega
-        price = black_price(F,K,r,T,sigma,cp_flag)
-        vega = black_vega(F,K,r,T,sigma)
-        diff = price - value
+        diff = price - cp_mkt_value
         if (abs(diff) < PRECISION):
             return sigma
         # divide by zero error
@@ -68,7 +52,16 @@ def black_impl_vol(F,K,r,T,value,cp_flag):
         elif vega == 0:
             return -1
 
-def bsm_impl_vol(S,K,r,T,value,cp_flag):
+
+def black_impl_vol(F,K,r,T,cp_mkt_value,cp_flag):
+    try:
+        return optimize.newton(lambda x: black_price(F,K,r,T,x,cp_flag) - cp_mkt_value, 0.5)
+    except:
+        return nan
+
+
+# old version
+def bsm_impl_vol0(S,K,r,T,cp_mkt_value,cp_flag):
     MAX_ITERATIONS = 100
     PRECISION = 1.0e-5
     sigma = 0.5
@@ -76,7 +69,7 @@ def bsm_impl_vol(S,K,r,T,value,cp_flag):
         # every iter calculate a new pair of price and vega
         price = bsm_price(S,K,r,T,sigma,cp_flag)
         vega = bsm_vega(S,K,r,T,sigma)
-        diff = price - value
+        diff = price - cp_mkt_value
         if (abs(diff) < PRECISION):
             return sigma
         # divide by zero error
@@ -84,3 +77,11 @@ def bsm_impl_vol(S,K,r,T,value,cp_flag):
             sigma = sigma - diff/vega
         elif vega == 0:
             return -1
+
+
+def bsm_impl_vol(S,K,r,T,cp_mkt_value,cp_flag):
+    return optimize.newton(lambda x: bsm_price(S,K,r,T,x,cp_flag) - cp_mkt_value, 0.5)
+
+
+def test1():
+    print(3)

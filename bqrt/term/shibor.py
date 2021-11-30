@@ -38,16 +38,16 @@ def read_shibor_folder(path) -> pd.DataFrame:
     return shibor_df
 
 
-def shibor_linear_interp(shibor_df, date, maturity) -> float:
+def shibor_interp(shibor_df, date, maturity) -> float:
     """Linear interpolation of Shibor term structure
 
-    Linear interpolation of Shibor Data Services xls files
+    Linear interpolation (piecewise) of Shibor Data Services xls files
 
     Parameters
     ----------
     shibor_df : pd.DataFrame
         Dataframe from read_shibor()
-    date : string of date or Datetime object
+    date : datetime object ??string of date or Datetime object??
         Date to linear interpolation
     maturity : float
         Maturity(in year) to interpolation
@@ -60,7 +60,7 @@ def shibor_linear_interp(shibor_df, date, maturity) -> float:
     maturity_list = [0, 7.0 / 365, 14.0 / 365, 1.0 / 12, 0.25, 0.5, 0.75, 1]
     term_stucture = shibor_df[shibor_df['date'] ==
                               date].values.flatten().tolist()[1:]
-    return interp(maturity, maturity_list, term_stucture)
+    return interp(maturity, maturity_list, term_stucture) / 100
 
 
 def shibor_chs_interp(shibor_df, date, maturity) -> float:
