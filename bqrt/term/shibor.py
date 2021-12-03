@@ -66,7 +66,6 @@ def shibor_interp(shibor_df, date, maturity) -> float:
 def shibor_chs_interp(shibor_df, date, maturity) -> float:
     """Cubic Hermite Spline interpolation of Shibor term structure
     [Scipy](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.CubicHermiteSpline.html)
-    [Wikipedia](https://en.wikipedia.org/wiki/Cubic_Hermite_spline)
 
     Linear interpolation of Shibor Data Services xls files
 

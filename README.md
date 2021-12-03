@@ -8,7 +8,11 @@ This package is built to assist my daily quantitative research, containing resea
 
 ## TODO
 
-- create an option class, method including BSIV, MFIV calculation
+- create stock price class
+- create an option class, method including BSIV, MFIV calculation.implied F, S
+- class 单个期权合约，一对期权合约？一组？可以进行插值等操作
+- 求解波动率失败，可以由中点，改为尝试端点
+- add boundry condition to option price
 - create time series class for (g)arch and do (quasi-)MLE estimate
 - Implied jump risk (Booleslev and Todorov 2011)
 - Implied skewnesss (Bakshi Kapadia and Madan 2003)
