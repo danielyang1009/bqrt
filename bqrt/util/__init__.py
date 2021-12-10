@@ -2,8 +2,35 @@
 
 import pandas as pd
 import glob
-from .dist import *
+from .stats import *
 from .date import *
+
+def flat_multi_idx(df:pd.DataFrame) -> list:
+    """Flatten pandas multi-index after unstack
+    `df.columns = flat_multi_idx(df)`
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        df which columns is multi-index
+
+    Returns
+    -------
+    list
+        flatten list of df columns
+    """
+    return ['_'.join(col).strip() for col in df.columns.values]
+
+
+def hac_lag(df:pd.DataFrame):
+    """Calculate three kind of estimate of HAC lag
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame to calculate
+    """
+    print( 4*(df.shape[0]/100)**(2/9), 0.75*(df.shape[0])**(1/3)-1, (df.shape[0])**(1/4))
 
 
 def slope_intercept(x1, y1, x2, y2):

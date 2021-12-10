@@ -1,8 +1,9 @@
 from numpy import exp,log, sqrt, pi
+import pandas as pd
 from scipy.special import erf
+from scipy import stats
 from scipy.stats import norm
 from scipy.stats import lognorm
-
 
 # Reference
 # https://en.wikipedia.org/wiki/Normal_distribution
@@ -10,6 +11,43 @@ from scipy.stats import lognorm
 # https://en.wikipedia.org/wiki/Error_function
 # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.norm.html
 # https://docs.scipy.org/doc/scipy/reference/reference/generated/scipy.stats.lognorm.html
+
+
+def describe(df:pd.DataFrame):
+	"""Create pandas describe like dataframe, contains skewness and kurtosis
+
+	Parameters
+	----------
+	df : pd.DataFrame
+		DataFrame object to be analysis
+
+	Returns
+	-------
+	result : pd.DataFrame
+		pandas describe like dataframe
+	"""
+	res_list = []
+	try:
+		df = df.to_frame()
+	except:
+		pass
+
+	for col in df.columns.to_list():
+		des = stats.describe(df[col])
+		parts = {
+			'count': int(des.nobs),
+			'mean':des.mean,
+			'std': sqrt(des.variance),
+			'var': des.variance,
+			'min': des.minmax[0],
+			'max': des.minmax[1],
+			'skew': des.skewness,
+			'kurt': des.kurtosis
+		}
+		res_list.append(parts)
+		res = pd.DataFrame(res_list).T
+	res.columns = df.columns
+	return res
 
 
 def norm_pdf(x,mu,sigma):
