@@ -5,6 +5,11 @@ import glob
 from .stats import *
 from .date import *
 
+def set_max(rows:int=200, cols:int=50):
+    pd.set_option('display.max_rows', rows)
+    pd.set_option('display.max_columns', cols)
+
+
 def flat_multi_idx(df:pd.DataFrame) -> list:
     """Flatten pandas multi-index after unstack
     `df.columns = flat_multi_idx(df)`

@@ -66,7 +66,7 @@ def norm_pdf(x,mu,sigma):
 	"""
 	# calcuated from scipy package
 	# norm.pdf(x,mu,sigma)
-	return 1/(sigma*sqrt(2*np.pi)) * exp(-(x-mu)**2/(2*sigma**2))
+	return 1/(sigma*sqrt(2*pi)) * exp(-(x-mu)**2/(2*sigma**2))
 
 
 def norm_cdf(x,mu,sigma):
