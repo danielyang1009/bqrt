@@ -13,12 +13,12 @@ def black_d2(F,K,tau,sigma):
     return (log(F/K) - (0.5*sigma**2)*tau) / (sigma*sqrt(tau))
 
 
-def black_call_delta(F,K,r,tau,sigma) -> float:
-    return exp(-r*tau) * norm.cdf(black_d1(F,K,tau,sigma))
-
-
-def black_put_delta(F,K,r,tau,sigma) -> float:
-    return -exp(-r*tau) * norm.cdf(-black_d1(F,K,tau,sigma))
+def black_delta(F,K,r,tau,sigma,cp_flag) -> float:
+    d1 = (log(F/K) + (0.5*sigma**2)*tau) / (sigma*sqrt(tau))
+    if cp_flag == 'C':
+        return exp(-r*tau) * norm.cdf(d1)
+    elif cp_flag == 'P':
+        return -exp(-r*tau) * norm.cdf(-d1)
 
 
 def black_call_bound(F,K,r,tau,call_price) -> bool:

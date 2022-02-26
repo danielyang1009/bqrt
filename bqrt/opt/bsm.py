@@ -13,14 +13,12 @@ def bsm_d2(S,K,r,tau,sigma):
     return (log(S/K) + (r-0.5*sigma**2)*tau) / (sigma*sqrt(tau))
 
 
-def bsm_call_delta(S,K,r,tau,sigma):
+def bsm_delta(S,K,r,tau,sigma,cp_flag) -> float:
     d1 = (log(S/K) + (r+0.5*sigma**2)*tau) / (sigma*sqrt(tau))
-    return norm.cdf(d1)
-
-
-def bsm_put_delta(S,K,r,tau,sigma):
-    d1 = (log(S/K) + (r+0.5*sigma**2)*tau) / (sigma*sqrt(tau))
-    return norm.cdf(d1) - 1
+    if cp_flag == 'C':
+        return norm.cdf(d1)
+    elif cp_flag == 'P':
+        return norm.cdf(-d1)
 
 
 def bsm_gamma(S,K,r,tau,sigma) -> float:
