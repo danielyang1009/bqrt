@@ -2,7 +2,6 @@
 
 from numpy import exp, log, sqrt
 from scipy.stats import norm
-from scipy import optimize
 
 
 def black_d1(F,K,tau,sigma):
@@ -34,6 +33,35 @@ def black_put_bound(F,K,r,tau,put_price) -> bool:
 
 
 def black_price(F,K,r,tau,sigma,cp_flag):
+    """
+    Black model or Black-76 model for european option pricing
+
+    Parameters
+    ----------
+    S : float
+        spot price
+    K : float
+        strike price
+    r : float
+        risk-free rakte
+    tau : _type_
+        time to maturity (in year)
+    sigma : float
+        volatility
+    cp_flag : string
+        'C' for european call, 'P' for european put
+
+    Returns
+    -------
+    float
+        black model european option price
+
+    Reference
+    ---------
+    [1] Black, Fischer, 1976, The Pricing of Commodity Contracts, Journal of Financial Economics 3, 167–179.
+    [2] Hull, John, 2017, Options, Futures, and Other Derivatives. 10th edition. (Pearson, New York, NY).
+    """
+
     d1 = (log(F/K) + (0.5*sigma**2)*tau) / (sigma*sqrt(tau))
     d2 = (log(F/K) - (0.5*sigma**2)*tau) / (sigma*sqrt(tau))
     if cp_flag == 'C':
@@ -43,6 +71,8 @@ def black_price(F,K,r,tau,sigma,cp_flag):
 
 
 def black_impl_vol(F,K,r,tau,cp_mkt_value,cp_flag):
+    from scipy import optimize
+
     return optimize.newton(lambda x: black_price(F,K,r,tau,x,cp_flag) - cp_mkt_value, 0.5, maxiter=100, disp=True)
 
 
@@ -51,7 +81,7 @@ def black_vega(F,K,tau,sigma):
     return F*norm.pdf(d1)*sqrt(tau)
 
 
-# old version 
+# old version newton's method root-finding
 def black_impl_vol0(F,K,r,T,cp_mkt_value,cp_flag):
     MAX_ITERATIONS = 100
     PRECISION = 1.0e-5
