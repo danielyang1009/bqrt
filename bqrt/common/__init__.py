@@ -1,13 +1,38 @@
 #!/usr/bin/env python
+from .date import *
+from .stats import *
 
 import pandas as pd
-import glob
-from .stats import *
-from .date import *
+# import numpy as np
 
-def set_max(rows:int=200, cols:int=50):
+
+def set_option_display(rows:int=200, cols:int=50):
+    """
+    Set both maximum diplay rows and columns
+
+    Parameters
+    ----------
+    rows : int, optional
+        max rows, by default 200
+    cols : int, optional
+        max columns, by default 50
+    """
     pd.set_option('display.max_rows', rows)
     pd.set_option('display.max_columns', cols)
+
+
+def set_option_float(digits=4):
+    """
+    Set maximum number of digits to show
+
+    Parameters
+    ----------
+    digits : int, optional
+        number of digits to show, by default 4
+    """
+
+    float_format = '{:.'+str(digits)+'f}'
+    pd.set_option('display.float_format', lambda x: float_format.format(x))
 
 
 def flat_multi_idx(df:pd.DataFrame) -> list:
@@ -77,19 +102,18 @@ def read_h5_folder(path) -> pd.DataFrame:
     DataFrame
         return concatenated Dataframe
     """
+
+    import glob
+
     h5_file_list = glob.glob(path + '/*.h5')
     h5_file_parts = [pd.read_hdf(f) for f in h5_file_list]
     h5_raw = pd.concat(h5_file_parts, ignore_index=True)
     return h5_raw
 
 
-import matplotlib.pyplot as plt
-import statsmodels.tsa.api as smt
-import statsmodels.api as sm
-import scipy.stats as scs
-
 def tsplot(y, lags=None, figsize=(10, 8), style='bmh'):
-    """ Plot time series
+    """
+    Plot time series
 
     Parameters
     ----------
@@ -102,6 +126,12 @@ def tsplot(y, lags=None, figsize=(10, 8), style='bmh'):
     style : str, optional
         [description], by default 'bmh'
     """
+
+    import matplotlib.pyplot as plt
+    import statsmodels.tsa.api as smt
+    import statsmodels.api as sm
+    import scipy.stats as scs
+    
     if not isinstance(y, pd.Series):
         y = pd.Series(y)
     with plt.style.context(style):    
@@ -134,11 +164,3 @@ def jupyter_memory():
 
     # Get a sorted list of the objects and their sizes
     sorted([(x, sys.getsizeof(globals().get(x))) for x in dir() if not x.startswith('_') and x not in sys.modules and x not in ipython_vars], key=lambda x: x[1], reverse=True)
-
-
-def check_dates():
-    print(3)
-
-
-def check_entries():
-    pass

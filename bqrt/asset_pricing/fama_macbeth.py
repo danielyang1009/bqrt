@@ -1,4 +1,3 @@
-
 """
 Fama-Macbeth Rgression
 ----------------------
@@ -22,21 +21,63 @@ def print_test(x):
     print(4)
 
 
+def kwargs_test(**kwargs):
+    """_summary_
+
+    >>> kwargs_test(yvar='ret', xvar=['intercept','MKT'])
+    1
+    """
+
+    if 'yvar' in kwargs and 'xvar' in kwargs:
+        yvar = kwargs['yvar']
+        xvar = kwargs['xvar']
+
+    return yvar, xvar
+
+
 def __np_ols(data, yvar, xvar):
     """
-    Wrapper of np.linalg.lstsq
+    Wrapper of `np.linalg.lstsq(a,b)`, which sovles `a @ x = b` for x.
+    
 
+    Parameters
+    ----------
+    data : pd.DataFrame
+        data
+    yvar : string
+        string of y variable
+    xvar : list of string
+        list of string of x variables
+
+    Returns
+    -------
+    pd.Series
+        least-squares solutions of x, if b is two-dimensional, then solutions in k columns
+        
     Notes
     -----
     Under the hood, pseudoinverse is calculated using singular value decomposition (SVD), As any matrix can be decomposite as $A=U \Sigma V^T$, then pseudoinverse of matrix $A$ is $A^+ = V \Sigma^+ U^T$. `rcond` is used to set cut-off ratio for small singular values of in $\Sigma$. Setting `rcond=None` to silence the warning and use machine prcision as rcond parameter. 
 
     [What does the rcond parameter of numpy.linalg.pinv do?](https://stackoverflow.com/questions/53949202/what-does-the-rcond-parameter-of-numpy-linalg-pinv-do)
 
-    """
+    [lstsq api](https://numpy.org/doc/stable/reference/generated/numpy.linalg.lstsq.html)
+    """    
 
-    betas,_,_,_ = np.linalg.lstsq(data[xvar], data[yvar], rcond=None)
+    beta, _, _, _ = np.linalg.lstsq(data[xvar], data[yvar], rcond=None)
 
-    return pd.Series(betas.flatten())
+    return pd.Series(beta)
+
+
+def __sm_ols(data, yvar, xvar, interp=True):
+
+    import statsmodels.api as sm
+
+    if interp:
+        res = sm.OLS(data[yvar], sm.add_constant(data[xvar])).fit()
+    else:
+        res = sm.OLS(data[yvar], data[xvar]).fit()
+    
+    return res
 
 
 def hac_maxlags(t):
@@ -66,7 +107,7 @@ def hac_maxlags(t):
     return np.floor(4*(t/100)**(2/9))
 
 
-def from_formula(reg_formula:str):
+def from_formula(reg_formula: str):
     """
     Breaking list of regression formula into y and x variables
 
@@ -94,21 +135,57 @@ def from_formula(reg_formula:str):
 
     yvar = reg_formula.split('~')[0].strip()
     x_string = reg_formula.split('~')[1].strip()
-    xvar_list = [ x.strip() for x in x_string.split('+') ]
+    xvar_list = [x.strip() for x in x_string.split('+')]
 
     return yvar, xvar_list
 
 
-def fama_macbeth(data, t, yvar, xvar):
+def constant_beta(data, entity, yvar, xvar):
     """
-    Fama-macbeth regression for every t, `excess return ~ beta' lambda`, regressing ret on beta to get time series of lambdas (factor risk premium)
+    Time series regression for every i (asset) from all periods, getting unconditional (look-ahead bias) betas, `excess_return_t ~ lambda_t` same period matching regression.
+
+    Parameters
+    ----------
+    data : _type_
+        _description_
+    entity : str
+        column of test assets
+    yvar : string
+        excess return of test asset
+    xvar : list of strings
+        factor lambda
+
+    Returns
+    -------
+    pd.DataFrame, index of i, shape of (data['i'].nunique(), len(xvar))
+        return cross-sectional result of betas, list of estimated betas for every i
+
+    Note
+    ----
+    Same as fama_macbeth groupby i instead of groupby t
+    """
+
+    estimated_betas = (data.groupby(entity).apply(__np_ols, yvar, xvar))
+    estimated_betas.columns = xvar
+
+    return estimated_betas
+
+
+def rolling_beta():
+    # conditional beta
+    pass
+
+
+def fama_macbeth(data, time, yvar, xvar):
+    """
+    Fama-macbeth regression (cross-sectional) for every t, `excess_return ~ beta' lambda`, regressing ret on beta to get time series of lambdas (factor risk premium)
 
     Parameters
     ----------
     data : pd.DataFrame
-        dataframe contains excess return and factor beta (exposure)
-    t : string
-        column name of date/time/periods
+        dataframe contains excess return and factor beta (exposure) can be firm characteristics or estimated betas
+    time : string
+        column of date/time/periods
     yvar : string
         excess return of test asset
     xvar : list of strings
@@ -116,8 +193,8 @@ def fama_macbeth(data, t, yvar, xvar):
 
     Returns
     -------
-    pd.DataFrame, shape of (len(t),len(xvar))
-        return time series result of lambdas (factor risk premium)
+    pd.DataFrame, time as index, shape of (time, len(xvar))
+        return time series result of estimated lambdas (factor risk premium), list of estimated lambdas for every t
     
     Notes
     -----
@@ -130,34 +207,35 @@ def fama_macbeth(data, t, yvar, xvar):
     """
 
     # running cross-sectional ols for every t, get time series lambdas
-    d = (data.groupby(t).apply(__np_ols, yvar, xvar))
+    estimated_lambdas = (data.groupby(time).apply(__np_ols, yvar, xvar))
     # rename column names
-    d.columns = xvar
+    estimated_lambdas.columns = xvar
 
-    return d
+    return estimated_lambdas
 
 
-def get_summary(lambd, HAC=False, **kwargs):
-    """_summary_
+def fm_summary(lambd, HAC=False, **kwargs):
+    """
+    Describe time-series of variables, typical for describing factor risk premium or lambdas, only describe a set of variables or result of single fama-macbeth regression
 
     Parameters
     ----------
-    lambd : _type_
-        _description_
+    lambd : pd.DataFrame
+        `time` variable as index, variables in columns, if `t` time periods with k variables then Dataframe has a shape of (t,k) 
     HAC : bool, optional
-        _description_, by default False
+        using HAC estimator or not, need to specify `maxlags` if True, i.e `maxlags=8`
 
     Returns
     -------
-    _type_
-        _description_
+    pd.DataFrame
+        based on pandas describe function adding standard error, t-statistic and p-value
     """
 
     import statsmodels.formula.api as smf
     from scipy import stats
-    
+
     s = lambd.describe().T
-    # getting robust HAC estimators 
+    # getting robust HAC estimators
     if HAC:
         if ('maxlags' in kwargs):
             maxlags = kwargs['maxlags']
@@ -173,31 +251,29 @@ def get_summary(lambd, HAC=False, **kwargs):
     else:
         # nonrobust estimators
         s['std_error'] = s['std'] / np.sqrt(s['count'])
-    
+
     # t-statistics
     s['tstat'] = s['mean'] / s['std_error']
     # 2-sided p-value for the t-statistic
-    s['pval'] = stats.t.sf(np.abs(s['tstat']), s['count']-1) * 2 
+    s['pval'] = stats.t.sf(np.abs(s['tstat']), s['count'] - 1) * 2
 
     return s
 
 
-def fama_macbeth_reglist(data, t, reglist, HAC=False, **kwargs):
+def fm_2nd_pass_reglist(data, time, reglist, HAC=False, **kwargs):
     """
-    Running multiple fama-macbeth regression from `reglist`, return time series of lambdas and their descriptive statistics as well as t-statistics, stantadard errors (nonrobust or HAC) and p-values.
-    
-    Need to make sure last formula in `reglist` contains all x variables, which is determing maximum number of x variables.
+    Running multiple only second-pass of fama-macbeth regression from `reglist`. When using firm characteristics as betas, there's no need to estimate betas from first pass with factor risk premium.  
 
     Parameters
     ----------
     data : pd.DataFrame
         dataframe contains excess return and factor beta (exposure) in long format (test asssts and t in rows, factors in columns)
-    t : string
+    time : string
         column name of date/time/periods
     reglist : list
-        list of R-like regression formula
+        list of R-like regression formula, last regression contains full x variables
     HAC : bool, optional
-        using HAC estimator or not, need to specify `maxlags` if True
+        using HAC estimator or not, need to specify `maxlags` if True, i.e `maxlags=8`
 
     Returns
     -------
@@ -205,39 +281,115 @@ def fama_macbeth_reglist(data, t, reglist, HAC=False, **kwargs):
         first regression results can be accessed from `summary['lambda'][0]` and `summary['summary'][0]` and so on
     """
 
+    from tqdm.notebook import tqdm
+
     # initialized
     summary = {}
     summary['lambda'], summary['summary'] = [], []
     #  reglist for-loop
-    for reg in reglist:
+    for reg in tqdm(reglist, desc='Reg No.'):
         yvar, xvar_list = from_formula(reg)
-        lambd = fama_macbeth(data, t, yvar, xvar_list)
+
+        lambd = fama_macbeth(data, time, yvar, xvar_list)
         summary['lambda'].append(lambd)
 
         # HAC estimator
         if HAC:
             if ('maxlags' in kwargs):
                 maxlags = kwargs['maxlags']
-                s = get_summary(lambd, HAC=True, maxlags=maxlags)
+                s = fm_summary(lambd, HAC=True, maxlags=maxlags)
                 summary['summary'].append(s)
             else:
                 print('`maxlag` is needed to computer HAC')
         # nonrobust estimator
         else:
-            s = get_summary(lambd)
+            s = fm_summary(lambd)
             summary['summary'].append(s)
 
     return summary
 
 
-def fama_macbeth_summary(s, params_format='{:.4f}', tstat_format='({:.2f})'):
+def fm_two_pass_reglist(data, time, entity, reglist, rolling:int=None, sc_interp=True):
     """
-    Running multiple fama-macbeth regression from `reglist`, returning financial research journal format summary table.
+    Running multiple two-pass fama-macbeth regression from `reglist`, return time series of lambdas 
+
+    standard fama-macbeth two-pass regression: 1) get estimated beta_{t} from `r_{t} ~ beta_{t} lambda_{t}` 2) get estimated lambda_{t+1} from `r_{t+1} ~ beta{t} \lambda{t+1}`
+
+    [TODO] rolling beta
+    
+    Need to make sure last formula in `reglist` contains all x variables, which is determing maximum number of x variables.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        dataframe contains excess return and factor beta (exposure) in long format (test asssts and t in rows, factors in columns)
+    time : string
+        column name of date/time/periods
+    entity : str
+        column of test assets
+    reglist : list
+        list of R-like regression formula, last regression contains full x variables
+    sc_interp : bool, optional
+        set an intercept or not for second-pass fama-macbeth regression
+
+    Returns
+    -------
+    _type_
+        _description_
+    """
+
+    from tqdm.notebook import tqdm
+
+    # initialized
+    summary = {}
+    summary['beta'] = []
+    summary['lambda'] = []
+    #  reglist for-loop
+    for reg in tqdm(reglist, desc='Reg No.'):
+        yvar, xvar_list = from_formula(reg)
+        
+        # first pass intercept by default
+        data['intercept'] = 1
+
+        # constant beta vs rolling beta
+        if rolling != None:
+            # TODO
+            pass
+        else:
+            # index is symbol
+            est_beta = constant_beta(data, entity, yvar, ['intercept'] + xvar_list)
+        summary['beta'].append(est_beta)
+
+        # setting up for second pass, one-step lead-lag regression
+        fm_table = data[[time,entity,yvar]].copy()
+        fm_table.loc[:,yvar] = fm_table.groupby(entity)[yvar].shift(-1)
+        fm_table = fm_table.dropna()
+        fm_table = pd.merge(fm_table, est_beta, on=entity, how='left')
+
+        # second pass interept
+        if sc_interp:
+            fm_table['intercept'] = 1
+            lambd = fama_macbeth(fm_table, time, yvar, ['intercept'] + xvar_list)
+            summary['lambda'].append(lambd)
+        else:
+            lambd = fama_macbeth(fm_table, time, yvar, xvar_list)
+            summary['lambda'].append(lambd)
+
+    return summary
+
+
+def fama_macbeth_summary(s, HAC=False, maxlags=None, params_format='{:.4f}', tstat_format='({:.2f})'):
+    """
+    Taking results from `fm_two_pass_reglist` and `fm_2pass_reglist` returning financial research journal format summary table. Results are reported in either nonrobust or HAC estimators. 
 
     Parameters
     ----------
     s : dictionary
         dictionary of results from `fama_macbeth_reglist` funtion
+    HAC : bool, optional
+        using HAC estimator or not, need to specify `maxlags` if True, i.e `maxlags=8`
+    maxlags : int, optional
+        maximum lags for HAC estimator
     params_format : str, optional
         number of digits to keep for params (coefficient), in this case mean of time series lambdas, by default '{:.4f}'
     tstat_format : str, optional
@@ -250,19 +402,28 @@ def fama_macbeth_summary(s, params_format='{:.4f}', tstat_format='({:.2f})'):
     """
 
     # using last formula to get all x variables
-    full_xvars = s['summary'][-1].index.to_list()
-    # create DataFrame
+    full_xvars = s['lambda'][-1].columns.to_list()
+
+    # create reporting table
     summary_table_rows = sum([[var, '{}_t'.format(var)] for var in full_xvars], [])
-    summary_table_cols = ['({})'.format(i+1) for i in range(len(s['summary']))]
+    summary_table_cols = ['({})'.format(i+1) for i in range(len(s['lambda']))]
     summary_table = pd.DataFrame(index=summary_table_rows, columns=summary_table_cols)
-    
+
     # putting params and t-value in place
-    for reg_no in range(len(s['summary'])):
-        model_no = '({})'.format(reg_no+1)
-        for var in s['summary'][reg_no].index.to_list():
+    for reg_no in range(len(s['lambda'])):
+        model_no = '({})'.format(reg_no + 1)
+
+        # HAC estimator
+        if HAC:
+            d = fm_summary(s['lambda'][reg_no], HAC=True, maxlags=maxlags)
+        # nonrobust estimator
+        else:
+            d = fm_summary(s['lambda'][reg_no])
+        
+        for var in d.index.to_list():
             # getting p-values to determine significant level
-            pval = s['summary'][reg_no].loc[var,'pval']
-            param =  params_format.format(s['summary'][reg_no].loc[var,'mean'])
+            pval = d.loc[var, 'pval']
+            param = params_format.format(d.loc[var, 'mean'])
             # add significant level star mark to params
             if (pval <= 0.1) & (pval > 0.05):
                 param = param + '*'
@@ -274,10 +435,12 @@ def fama_macbeth_summary(s, params_format='{:.4f}', tstat_format='({:.2f})'):
             # filling param
             summary_table.loc[var, model_no] = param
             # filling t-statistics
-            summary_table.loc['{}_t'.format(var), model_no] = tstat_format.format(s['summary'][reg_no].loc[var,'tstat'])
+            summary_table.loc['{}_t'.format(var), model_no] = tstat_format.format(d.loc[var, 'tstat'])
 
     # replacing `var_t` index with whitespace,
     summary_table.index = sum([[var, ''.format(var)] for var in full_xvars], [])
+
+    # TODO add adj-R^2 and obs
 
     # replace NaN with whitespace for readability
     return summary_table.fillna('')
