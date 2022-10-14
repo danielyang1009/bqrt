@@ -34,8 +34,7 @@ def kwargs_test(**kwargs):
 
     return yvar, xvar
 
-
-def __np_ols(data, yvar, xvar):
+def __np_ols(data, yvar, xvar, keep_r2=False):
     """
     Wrapper of `np.linalg.lstsq(a,b)`, which sovles `a @ x = b` for x.
     
@@ -48,6 +47,8 @@ def __np_ols(data, yvar, xvar):
         string of y variable
     xvar : list of string
         list of string of x variables
+    keep_r2 : bool
+        whether keep r-squared of adj. r-squared in result
 
     Returns
     -------
@@ -61,14 +62,47 @@ def __np_ols(data, yvar, xvar):
     [What does the rcond parameter of numpy.linalg.pinv do?](https://stackoverflow.com/questions/53949202/what-does-the-rcond-parameter-of-numpy-linalg-pinv-do)
 
     [lstsq api](https://numpy.org/doc/stable/reference/generated/numpy.linalg.lstsq.html)
-    """    
+    """
 
-    beta, _, _, _ = np.linalg.lstsq(data[xvar], data[yvar], rcond=None)
+    if keep_r2 == True:
+        beta, ssr, _, _ = np.linalg.lstsq(data[xvar], data[yvar], rcond=None)
+    
+        if ssr.size == 0:
+            X = np.mat(data[xvar])
+            y = np.mat(data[yvar]).T
+            y_hat = X @ np.mat(beta).T
+            ssr = sum(np.square(y-y_hat)).item()
+    
+        # match statsmodel
+        if any(i in ['intercept','const'] for i  in xvar):
+            dof_model = len(xvar) - 1 # excluding intercept
+            # dof_total = n - 1
+            dof_total = data.shape[0] - 1
+            # centered sst
+            sst = sum((data[yvar] - data[yvar].mean())**2)
+        else:
+            dof_model = len(xvar)
+            # dof_total = n
+            dof_total = data.shape[0]
+            # uncentered sst
+            sst = sum((data[yvar]**2))
 
-    return pd.Series(beta)
+        dof_resid = dof_total - dof_model
+        mse_total = sst / dof_total
+        mse_resid = ssr / dof_resid
+        r2 = 1 - ssr/sst
+        adj_r2 = 1 - mse_resid / mse_total
+        
+        return pd.concat([pd.Series(beta), pd.Series(r2), pd.Series(adj_r2)])
+    
+    else:
+        beta, _, _, _ = np.linalg.lstsq(data[xvar], data[yvar], rcond=None)
+
+        return pd.Series(beta)
 
 
-def __sm_ols(data, yvar, xvar, interp=True):
+
+def __sm_ols(data, yvar, xvar, interp=False):
 
     import statsmodels.api as sm
 
@@ -165,7 +199,7 @@ def constant_beta(data, entity, yvar, xvar):
     Same as fama_macbeth groupby i instead of groupby t
     """
 
-    estimated_betas = (data.groupby(entity).apply(__np_ols, yvar, xvar))
+    estimated_betas = data.groupby(entity).apply(__np_ols, yvar, xvar)
     estimated_betas.columns = xvar
 
     return estimated_betas
@@ -176,7 +210,7 @@ def rolling_beta():
     pass
 
 
-def fama_macbeth(data, time, yvar, xvar):
+def fama_macbeth(data, time, yvar, xvar, keep_r2=False):
     """
     Fama-macbeth regression (cross-sectional) for every t, `excess_return ~ beta' lambda`, regressing ret on beta to get time series of lambdas (factor risk premium)
 
@@ -190,6 +224,8 @@ def fama_macbeth(data, time, yvar, xvar):
         excess return of test asset
     xvar : list of strings
         factor betas
+    keep_r2 : bool
+        whether keep r-squared of adj. r-squared in result
 
     Returns
     -------
@@ -206,10 +242,14 @@ def fama_macbeth(data, time, yvar, xvar):
 
     """
 
-    # running cross-sectional ols for every t, get time series lambdas
-    estimated_lambdas = (data.groupby(time).apply(__np_ols, yvar, xvar))
-    # rename column names
-    estimated_lambdas.columns = xvar
+    if keep_r2:
+        estimated_lambdas = data.groupby(time).apply(__np_ols, yvar, xvar, keep_r2=True)
+        # rename column names
+        estimated_lambdas.columns = xvar + ['r2', 'adj-r2']
+    else:
+        estimated_lambdas = data.groupby(time).apply(__np_ols, yvar, xvar)
+        # rename column names
+        estimated_lambdas.columns = xvar
 
     return estimated_lambdas
 
@@ -344,6 +384,7 @@ def fm_two_pass_reglist(data, time, entity, reglist, rolling:int=None, sc_interp
     summary = {}
     summary['beta'] = []
     summary['lambda'] = []
+    summary['r2'] = []
     #  reglist for-loop
     for reg in tqdm(reglist, desc='Reg No.'):
         yvar, xvar_list = from_formula(reg)
@@ -366,19 +407,21 @@ def fm_two_pass_reglist(data, time, entity, reglist, rolling:int=None, sc_interp
         fm_table = fm_table.dropna()
         fm_table = pd.merge(fm_table, est_beta, on=entity, how='left')
 
-        # second pass interept
+        # second pass interept, keep_r2=True
         if sc_interp:
             fm_table['intercept'] = 1
-            lambd = fama_macbeth(fm_table, time, yvar, ['intercept'] + xvar_list)
-            summary['lambda'].append(lambd)
+            res = fama_macbeth(fm_table, time, yvar, ['intercept'] + xvar_list, keep_r2=True)
+            summary['lambda'].append(res[['intercept'] + xvar_list])
+            summary['r2'].append(res[['r2', 'adj-r2']])
         else:
-            lambd = fama_macbeth(fm_table, time, yvar, xvar_list)
-            summary['lambda'].append(lambd)
+            res = fama_macbeth(fm_table, time, yvar, xvar_list, keep_r2=True)
+            summary['lambda'].append(res[xvar_list])
+            summary['r2'].append(res[['r2', 'adj-r2']])
 
     return summary
 
 
-def fama_macbeth_summary(s, HAC=False, maxlags=None, params_format='{:.4f}', tstat_format='({:.2f})'):
+def fama_macbeth_summary(s, HAC=False, maxlags:int=None, params_digi:int=4, tstat_digi:int=2):
     """
     Taking results from `fm_two_pass_reglist` and `fm_2pass_reglist` returning financial research journal format summary table. Results are reported in either nonrobust or HAC estimators. 
 
@@ -405,12 +448,13 @@ def fama_macbeth_summary(s, HAC=False, maxlags=None, params_format='{:.4f}', tst
     full_xvars = s['lambda'][-1].columns.to_list()
 
     # create reporting table
-    summary_table_rows = sum([[var, '{}_t'.format(var)] for var in full_xvars], [])
-    summary_table_cols = ['({})'.format(i+1) for i in range(len(s['lambda']))]
-    summary_table = pd.DataFrame(index=summary_table_rows, columns=summary_table_cols)
+    summary_tbl_rows = sum([[var, '{}_t'.format(var)] for var in full_xvars], [])
+    summary_tbl_cols = ['({})'.format(i+1) for i in range(len(s['lambda']))]
+    summary_tbl = pd.DataFrame(index=summary_tbl_rows, columns=summary_tbl_cols)
 
     # putting params and t-value in place
-    for reg_no in range(len(s['lambda'])):
+    total_reg_no = len(s['lambda'])
+    for reg_no in range(total_reg_no):
         model_no = '({})'.format(reg_no + 1)
 
         # HAC estimator
@@ -423,7 +467,7 @@ def fama_macbeth_summary(s, HAC=False, maxlags=None, params_format='{:.4f}', tst
         for var in d.index.to_list():
             # getting p-values to determine significant level
             pval = d.loc[var, 'pval']
-            param = params_format.format(d.loc[var, 'mean'])
+            param = '{:.{prec}f}'.format(d.loc[var, 'mean'], prec=params_digi)
             # add significant level star mark to params
             if (pval <= 0.1) & (pval > 0.05):
                 param = param + '*'
@@ -433,14 +477,17 @@ def fama_macbeth_summary(s, HAC=False, maxlags=None, params_format='{:.4f}', tst
                 param = param + '***'
 
             # filling param
-            summary_table.loc[var, model_no] = param
+            summary_tbl.loc[var, model_no] = param
             # filling t-statistics
-            summary_table.loc['{}_t'.format(var), model_no] = tstat_format.format(d.loc[var, 'tstat'])
+            summary_tbl.loc['{}_t'.format(var), model_no] = '({:.{prec}f})'.format(d.loc[var, 'tstat'], prec=tstat_digi)
 
     # replacing `var_t` index with whitespace,
-    summary_table.index = sum([[var, ''.format(var)] for var in full_xvars], [])
+    summary_tbl.index = sum([[var, ''.format(var)] for var in full_xvars], [])
 
-    # TODO add adj-R^2 and obs
+    # add r^2 and adj-R^2
+    r2 = pd.DataFrame([i.mean() for i in s['r2']], index=['({})'.format(i) for i in range(1,total_reg_no +1)])
+    r2 = r2.applymap(lambda x: '{:.{prec}f}'.format(x, prec=params_digi))
+    summary_tbl = (pd.concat([summary_tbl.T, r2], axis=1)).T
 
     # replace NaN with whitespace for readability
-    return summary_table.fillna('')
+    return summary_tbl.fillna('')
