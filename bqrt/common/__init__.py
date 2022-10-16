@@ -6,32 +6,24 @@ import pandas as pd
 # import numpy as np
 
 
-def set_option_display(rows:int=200, cols:int=50):
+def set_notebook(max_rows:int=200, max_columns:int=50, float_digi=4):
     """
-    Set both maximum diplay rows and columns
+    1. Set both maximum diplay rows and columns
+    2. Set maximum number of digits to show
 
     Parameters
     ----------
-    rows : int, optional
+    max_rows : int, optional
         max rows, by default 200
-    cols : int, optional
+    max_columns : int, optional
         max columns, by default 50
-    """
-    pd.set_option('display.max_rows', rows)
-    pd.set_option('display.max_columns', cols)
-
-
-def set_option_float(digits=4):
-    """
-    Set maximum number of digits to show
-
-    Parameters
-    ----------
-    digits : int, optional
+    float_digi : int, optional
         number of digits to show, by default 4
     """
+    pd.set_option('display.max_rows', max_rows)
+    pd.set_option('display.max_columns', max_columns)
 
-    float_format = '{:.'+str(digits)+'f}'
+    float_format = '{{:.{}f}}'.format(float_digi)
     pd.set_option('display.float_format', lambda x: float_format.format(x))
 
 

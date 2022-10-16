@@ -138,7 +138,7 @@ def hac_maxlags(t):
 
     """
 
-    return np.floor(4*(t/100)**(2/9))
+    return int(np.floor(4*(t/100)**(2/9)))
 
 
 def from_formula(reg_formula: str):

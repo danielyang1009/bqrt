@@ -13,7 +13,7 @@ from scipy.special import erf
 # https://docs.scipy.org/doc/scipy/reference/reference/generated/scipy.stats.lognorm.html
 
 
-def describe(df:pd.DataFrame, digits:int=4):
+def describe(df:pd.DataFrame, params_digi:int=4, tstat_digi:int=2):
     """
     Create pandas describe like dataframe, contains skewness and kurtosis, t-statistics and p-value
     
@@ -33,26 +33,29 @@ def describe(df:pd.DataFrame, digits:int=4):
     """
     import scipy.stats as stats
 
-    float_format = '{:.'+str(digits)+'f}'
     result_list = []
-    try:
-        df = df.to_frame()
-    except:
-        pass
+    params_format = '{{:.{}f}}'.format(params_digi)
+    tstat_format = '{{:.{}f}}'.format(tstat_digi)
+
+    # only include `float` dtype
+    df = df.select_dtypes(include='float')
 
     for col in df.columns.to_list():
         des = stats.describe(df[col])
         parts = {
             'count': '{}'.format(int(des.nobs)),
-            'mean': float_format.format(des.mean),
-            'std': float_format.format(sqrt(des.variance)),
-            # 'var': float_format.format(des.variance),
-            'min': float_format.format(des.minmax[0]),
-            'max': float_format.format(des.minmax[1]),
-            'skew': float_format.format(des.skewness),
-            'kurt': float_format.format(des.kurtosis),
-            'tstat': '{:.2f}'.format(stats.ttest_1samp(df[col],0)[0]),
-            'pval': '{:.2f}'.format(stats.ttest_1samp(df[col],0)[1])
+            'mean': params_format.format(des.mean),
+            'std': params_format.format(sqrt(des.variance)),
+            # 'var': params_format.format(des.variance),
+            'min': params_format.format(des.minmax[0]),
+            '25%': params_format.format(df[col].quantile(0.25)),
+            '50%': params_format.format(df[col].quantile(0.50)),
+            '75%': params_format.format(df[col].quantile(0.75)),
+            'max': params_format.format(des.minmax[1]),
+            'skew': params_format.format(des.skewness),
+            'kurt': params_format.format(des.kurtosis),
+            'tstat': tstat_format.format(stats.ttest_1samp(df[col],0)[0]),
+            'pval': tstat_format.format(stats.ttest_1samp(df[col],0)[1])
         }
         result_list.append(parts)
         result = pd.DataFrame(result_list).T
