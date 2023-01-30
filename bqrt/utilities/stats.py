@@ -43,19 +43,21 @@ def describe(df:pd.DataFrame, params_digi:int=4, tstat_digi:int=2):
     for col in df.columns.to_list():
         des = stats.describe(df[col])
         parts = {
-            'count': '{}'.format(int(des.nobs)),
-            'mean': params_format.format(des.mean),
-            'std': params_format.format(sqrt(des.variance)),
+            'Count': '{}'.format(int(des.nobs)),
+            'Mean': params_format.format(des.mean),
+            'SD': params_format.format(sqrt(des.variance)),
             # 'var': params_format.format(des.variance),
-            'min': params_format.format(des.minmax[0]),
+            'Min': params_format.format(des.minmax[0]),
+            '5%': params_format.format(df[col].quantile(0.05)),
             '25%': params_format.format(df[col].quantile(0.25)),
             '50%': params_format.format(df[col].quantile(0.50)),
             '75%': params_format.format(df[col].quantile(0.75)),
-            'max': params_format.format(des.minmax[1]),
-            'skew': params_format.format(des.skewness),
-            'kurt': params_format.format(des.kurtosis),
-            'tstat': tstat_format.format(stats.ttest_1samp(df[col],0)[0]),
-            'pval': tstat_format.format(stats.ttest_1samp(df[col],0)[1])
+            '95%': params_format.format(df[col].quantile(0.95)),
+            'Max': params_format.format(des.minmax[1]),
+            'Skew': params_format.format(des.skewness),
+            'Kurt': params_format.format(des.kurtosis),
+            'T-stat': tstat_format.format(stats.ttest_1samp(df[col],0)[0]),
+            'P-val': tstat_format.format(stats.ttest_1samp(df[col],0)[1])
         }
         result_list.append(parts)
         result = pd.DataFrame(result_list).T

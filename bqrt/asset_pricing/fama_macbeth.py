@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 
-def print_test(x):
+def print_test():
     """_summary_
 
     >>> 1
@@ -18,7 +18,7 @@ def print_test(x):
     2
     """
 
-    print(4)
+    print(3)
 
 
 def kwargs_test(**kwargs):
@@ -99,7 +99,6 @@ def __np_ols(data, yvar, xvar, keep_r2=False):
         beta, _, _, _ = np.linalg.lstsq(data[xvar], data[yvar], rcond=None)
 
         return pd.Series(beta)
-
 
 
 def __sm_ols(data, yvar, xvar, interp=False):

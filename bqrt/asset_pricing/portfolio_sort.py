@@ -1,6 +1,11 @@
 """
 Portfolio Sort
 --------------
+
+TODO: 
+- 增加min_nobs，数量太少无法分组
+- 增加计算ret的权重value-weighted
+- 考虑双重排序，先对市值排序，而后对beta或sig_df排序
 """
 
 import pandas as pd

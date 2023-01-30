@@ -27,34 +27,6 @@ def set_notebook(max_rows:int=200, max_columns:int=50, float_digi=4):
     pd.set_option('display.float_format', lambda x: float_format.format(x))
 
 
-def flat_multi_idx(df:pd.DataFrame) -> list:
-    """Flatten pandas multi-index after unstack
-    `df.columns = flat_multi_idx(df)`
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        df which columns is multi-index
-
-    Returns
-    -------
-    list
-        flatten list of df columns
-    """
-    return ['_'.join(col).strip() for col in df.columns.values]
-
-
-def hac_lag(df:pd.DataFrame):
-    """Calculate three kind of estimate of HAC lag
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        DataFrame to calculate
-    """
-    print( 4*(df.shape[0]/100)**(2/9), 0.75*(df.shape[0])**(1/3)-1, (df.shape[0])**(1/4))
-
-
 def slope_intercept(x1, y1, x2, y2):
     """ Testing liear inpterpolation
 
@@ -77,30 +49,6 @@ def slope_intercept(x1, y1, x2, y2):
     slope = (y2 - y1) / (x2 - x1)
     intercept = (x1 * y2 - x2 * y1) / (x1 - x2)
     return slope, intercept
-
-
-def read_h5_folder(path) -> pd.DataFrame:
-    """ Reading h5 file in a folder
-
-    Reading all hdf file in 'path' (For example, 'raw/opt') and concatenate all file together to generate one single DataFrame. All file in the folder need to be in the same format(columns) to be concatenated.
-
-    Parameters
-    ----------
-    path : string 
-        file path, for exampe '/raw/50etf'
-
-    Returns
-    -------
-    DataFrame
-        return concatenated Dataframe
-    """
-
-    import glob
-
-    h5_file_list = glob.glob(path + '/*.h5')
-    h5_file_parts = [pd.read_hdf(f) for f in h5_file_list]
-    h5_raw = pd.concat(h5_file_parts, ignore_index=True)
-    return h5_raw
 
 
 def tsplot(y, lags=None, figsize=(10, 8), style='bmh'):
