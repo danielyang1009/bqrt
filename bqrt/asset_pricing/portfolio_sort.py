@@ -4,7 +4,7 @@ Portfolio Sort
 
 TODO: 
 - 增加min_nobs，数量太少无法分组
-- 增加计算ret的权重value-weighted
+- 增加计算ret的权重value-weighted（同期）
 - 考虑双重排序，先对市值排序，而后对beta或sig_df排序
 """
 
@@ -13,16 +13,45 @@ import numpy as np
 from tqdm.notebook import tqdm
 
 
-def portfolio_sort(sig_raw, ret_raw, scheme, b_num=None, b_list=None):
+def port_vw_return(mv_raw, ret_raw):
     """
-    Calculating 1 step forward portfolios return based on signal dataframe, by different scheme methods
+    Calculate value-weighted portfolio return. All inputs are in format of wide-table(date as index, individual asset as columns).
 
     Parameters
     ----------
-    sig_raw : pd.core.frame.DataFrame
-        signal dataframe, in wide format (date as index, individual asset as columns)
-    ret_raw : pd.core.frame.DataFrame
-        individual asset return dataframe, in wide format (date as index, individual asset as columns)
+    mv_raw : pd.DataFrame
+        market value dataframe
+    ret_raw : _type_
+        return dataframe
+
+    Returns
+    -------
+    pd.DataFrame
+        time-series of value-weighted portfolio return
+    """
+    # assertion mv_df, ret_df
+    mv_df, ret_df = mv_raw.copy(), ret_raw.copy()
+    assert isinstance(mv_df, pd.DataFrame), 'mv_df应为DataFrame'
+    assert isinstance(mv_df, pd.DataFrame), 'ret_df应为DataFrame'   
+    assert all(mv_df.columns == ret_df.columns), '列不一致'
+    assert all(mv_df.index == ret_df.index), '行不一致'
+    
+    # 计算每天总市值
+    ttl_mv_by_row = mv_df.sum(axis='columns')
+    mv_df = mv_df.div(ttl_mv_by_row, axis='rows')
+    return mv_df.mul(ret_df).sum(axis='columns')
+
+
+def portfolio_sort(sig_raw, ret_raw, scheme, b_num=None, b_list=None):
+    """
+    Calculating 1 step forward portfolios return based on signal dataframe, by different scheme methods. All inputs are in format of wide-table (date as index, individual asset as columns).
+
+    Parameters
+    ----------
+    sig_raw : pd.DataFrame
+        signal dataframe
+    ret_raw : pd.DataFrame
+        individual asset return dataframe
     scheme : str
         choose between: 'qcut', 'rank', 'zero'
     b_num : int, optional
@@ -32,15 +61,15 @@ def portfolio_sort(sig_raw, ret_raw, scheme, b_num=None, b_list=None):
 
     Returns
     -------
-    result : pd.core.frame.DataFrame
+    result : pd.DataFrame
         time-series of all portfolios returns including long-short (high-minues-low) portfolio
     """
 
     # assertion sig_df, ret_df
     # 确保行列都一致，确保index和columns和表内容type
     sig_df, ret_df = sig_raw.copy(), ret_raw.copy()
-    assert isinstance(sig_df, pd.core.frame.DataFrame), 'sig_df应为DataFrame'
-    assert isinstance(ret_df, pd.core.frame.DataFrame), 'ret_df应为DataFrame'   
+    assert isinstance(sig_df, pd.DataFrame), 'sig_df应为DataFrame'
+    assert isinstance(ret_df, pd.DataFrame), 'ret_df应为DataFrame'   
     assert all(sig_df.columns == ret_df.columns), '列不一致'
     assert all(sig_df.index == ret_df.index), '行不一致'
     # 确保index为datetime，内容全为float
