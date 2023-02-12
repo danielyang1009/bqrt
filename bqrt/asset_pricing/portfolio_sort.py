@@ -20,7 +20,7 @@ def port_vw_return(mv_raw, ret_raw):
     Parameters
     ----------
     mv_raw : pd.DataFrame
-        market value dataframe
+        market value dataframe, used to calcuate weight of each individual stock
     ret_raw : _type_
         return dataframe
 
@@ -38,6 +38,7 @@ def port_vw_return(mv_raw, ret_raw):
     
     # 计算每天总市值
     ttl_mv_by_row = mv_df.sum(axis='columns')
+    # 计算权重 = 市值/总市值
     mv_df = mv_df.div(ttl_mv_by_row, axis='rows')
     return mv_df.mul(ret_df).sum(axis='columns')
 

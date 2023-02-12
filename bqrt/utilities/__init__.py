@@ -5,6 +5,22 @@ from .stats import *
 import pandas as pd
 # import numpy as np
 
+def check_ptable(ptable, threshold=0.1, stars=False, columns=None):
+    assert isinstance(ptable, pd.DataFrame), '应为DataFrame'
+    # 如果未指定columns检查所有columns为float，指定则只检查指定列
+    if columns == None:
+        columns = ptable.columns
+    assert all(ptable[columns].dtypes == float), '所有的列应为float'
+    # 去除
+    res = ptable[ptable <= threshold]
+    # 精确两位
+    res = res.round(2)
+    # 打星
+    if stars == True:
+        res = res.applymap(lambda x: str(x)+''.join(['*' for t in [.01, .05, .1] if x<=t]))
+
+    return res.astype(str).replace({'nan':''})
+
 
 def set_notebook(max_rows:int=200, max_columns:int=50, float_digi=4):
     """
@@ -49,51 +65,6 @@ def slope_intercept(x1, y1, x2, y2):
     slope = (y2 - y1) / (x2 - x1)
     intercept = (x1 * y2 - x2 * y1) / (x1 - x2)
     return slope, intercept
-
-
-def tsplot(y, lags=None, figsize=(10, 8), style='bmh'):
-    """
-    Plot time series
-
-    Parameters
-    ----------
-    y : pd.Series
-        time series to graph
-    lags : [type], optional
-        [description], by default None
-    figsize : tuple, optional
-        [description], by default (10, 8)
-    style : str, optional
-        [description], by default 'bmh'
-    """
-
-    import matplotlib.pyplot as plt
-    import statsmodels.tsa.api as smt
-    import statsmodels.api as sm
-    import scipy.stats as scs
-    
-    if not isinstance(y, pd.Series):
-        y = pd.Series(y)
-    with plt.style.context(style):    
-        fig = plt.figure(figsize=figsize)
-        #mpl.rcParams['font.family'] = 'Ubuntu Mono'
-        layout = (3, 2)
-        ts_ax = plt.subplot2grid(layout, (0, 0), colspan=2)
-        acf_ax = plt.subplot2grid(layout, (1, 0))
-        pacf_ax = plt.subplot2grid(layout, (1, 1))
-        qq_ax = plt.subplot2grid(layout, (2, 0))
-        pp_ax = plt.subplot2grid(layout, (2, 1))
-        
-        y.plot(ax=ts_ax)
-        ts_ax.set_title('Time Series Analysis Plots')
-        smt.graphics.plot_acf(y, lags=lags, ax=acf_ax, alpha=0.5)
-        smt.graphics.plot_pacf(y, lags=lags, ax=pacf_ax, alpha=0.5)
-        sm.qqplot(y, line='s', ax=qq_ax)
-        qq_ax.set_title('QQ Plot')        
-        scs.probplot(y, sparams=(y.mean(), y.std()), plot=pp_ax)
-
-        plt.tight_layout()
-    return 
 
 
 def jupyter_memory():
