@@ -173,8 +173,9 @@ def from_formula(reg_formula: str):
     return yvar, xvar_list
 
 
-def constant_beta(data, entity, yvar, xvar):
+def fm_constant_beta(data, entity, yvar, xvar):
     """
+    Fisr step of Fama-Macbeth regression (unconditional)
     Time series regression for every i (asset) from all periods, getting unconditional (look-ahead bias) betas, `excess_return_t ~ lambda_t` same period matching regression.
 
     Parameters
@@ -204,9 +205,33 @@ def constant_beta(data, entity, yvar, xvar):
     return estimated_betas
 
 
-def rolling_beta():
-    # conditional beta
-    pass
+def fm_rolling_beta(data, time, entity, yvar, xvar_list, window=120, min_nobs=None):
+    
+    from tqdm.notebook import tqdm
+    from statsmodels.regression.rolling import RollingOLS
+    
+    if min_nobs is None:
+        min_nobs = window
+    
+    # keep timestampe in rolling_betas
+    data = data.set_index('date')
+    rolling_betas = pd.DataFrame()
+    for symb in tqdm(data[entity].unique()):
+        Y = data[data[entity] == symb][yvar]
+        X = data[data[entity] == symb][xvar_list]
+        rolling_ols = RollingOLS(Y, X, window=window, min_nobs=min_nobs)
+        to_add = rolling_ols.fit(params_only=True).params[xvar_list]
+        to_add[entity] = symb
+        rolling_betas = pd.concat([rolling_betas, to_add],axis='rows')
+
+    # setup for second step lead-lag regression
+    # must have time, entity as index, or group columns will be drop after groupby().shift()
+    rolling_betas = rolling_betas.set_index([rolling_betas.index, entity])
+    rolling_betas = rolling_betas.groupby(entity).shift(1).reset_index()
+    fm_table = data[[entity, yvar]].reset_index()
+    fm_table = fm_table.merge(rolling_betas, on=[time, entity], how='left')
+
+    return fm_table[[time, entity, yvar] + xvar_list].sort_values([time, entity])
 
 
 def fama_macbeth(data, time, yvar, xvar, keep_r2=False):
@@ -270,8 +295,8 @@ def fm_summary(lambd, HAC=False, **kwargs):
         based on pandas describe function adding standard error, t-statistic and p-value
     """
 
-    import statsmodels.formula.api as smf
     from scipy import stats
+    import statsmodels.formula.api as smf
 
     s = lambd.describe().T
     # getting robust HAC estimators
@@ -397,7 +422,7 @@ def fm_two_pass_reglist(data, time, entity, reglist, rolling:int=None, sc_interp
             pass
         else:
             # index is symbol
-            est_beta = constant_beta(data, entity, yvar, ['intercept'] + xvar_list)
+            est_beta = fm_constant_beta(data, entity, yvar, ['intercept'] + xvar_list)
         summary['beta'].append(est_beta)
 
         # setting up for second pass, one-step lead-lag regression
