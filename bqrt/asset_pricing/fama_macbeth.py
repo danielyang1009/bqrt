@@ -21,86 +21,6 @@ def print_test():
     print(3)
 
 
-def __np_ols(data, yvar, xvar_list, keep_r2=False):
-    """
-    Wrapper of `np.linalg.lstsq(a,b)`, which sovles `a @ x = b` for x.
-    
-
-    Parameters
-    ----------
-    data : pd.DataFrame
-        data
-    yvar : string
-        string of y variable
-    xvar : list of string
-        list of string of x variables
-    keep_r2 : bool
-        whether keep r-squared of adj. r-squared in result
-
-    Returns
-    -------
-    pd.Series
-        least-squares solutions of x, if b is two-dimensional, then solutions in k columns
-        
-    Notes
-    -----
-    Under the hood, pseudoinverse is calculated using singular value decomposition (SVD), As any matrix can be decomposite as $A=U \Sigma V^T$, then pseudoinverse of matrix $A$ is $A^+ = V \Sigma^+ U^T$. `rcond` is used to set cut-off ratio for small singular values of in $\Sigma$. Setting `rcond=None` to silence the warning and use machine prcision as rcond parameter. 
-
-    [What does the rcond parameter of numpy.linalg.pinv do?](https://stackoverflow.com/questions/53949202/what-does-the-rcond-parameter-of-numpy-linalg-pinv-do)
-
-    [lstsq api](https://numpy.org/doc/stable/reference/generated/numpy.linalg.lstsq.html)
-    """
-
-    if keep_r2 == True:
-        beta, ssr, _, _ = np.linalg.lstsq(data[xvar_list], data[yvar], rcond=None)
-    
-        if ssr.size == 0:
-            X = np.mat(data[xvar_list])
-            y = np.mat(data[yvar]).T
-            y_hat = X @ np.mat(beta).T
-            ssr = sum(np.square(y-y_hat)).item()
-    
-        # match statsmodel
-        if any(i in ['intercept','Intercept','const'] for i  in xvar_list):
-            dof_model = len(xvar_list) - 1 # excluding intercept
-            # dof_total = n - 1
-            dof_total = data.shape[0] - 1
-            # centered sst
-            sst = sum((data[yvar] - data[yvar].mean())**2)
-        else:
-            dof_model = len(xvar_list)
-            # dof_total = n
-            dof_total = data.shape[0]
-            # uncentered sst
-            sst = sum((data[yvar]**2))
-
-        # calcuate r2 / adj_r2
-        dof_resid = dof_total - dof_model
-        mse_total = sst / dof_total
-        mse_resid = ssr / dof_resid
-        r2 = 1 - ssr/sst
-        adj_r2 = 1 - mse_resid / mse_total
-        
-        return pd.concat([pd.Series(beta), pd.Series(r2), pd.Series(adj_r2)])
-    
-    else:
-        beta, _, _, _ = np.linalg.lstsq(data[xvar_list], data[yvar], rcond=None)
-
-        return pd.Series(beta)
-
-
-def __sm_ols(data, yvar, xvar_list, interp=False):
-
-    import statsmodels.api as sm
-
-    if interp:
-        res = sm.OLS(data[yvar], sm.add_constant(data[xvar_list])).fit()
-    else:
-        res = sm.OLS(data[yvar], data[xvar_list]).fit()
-    
-    return res
-
-
 def hac_maxlags(t):
     """
     Calculate `maxlags` for Heteroskedasticity and Autocorrelation Consistent (HAC) estimator or Newey–West estimator
@@ -259,6 +179,91 @@ def fm_rolling_beta(data, yvar, xvar_list, time='date', entity='symbol', window=
     return fp_table.sort_values([time, entity])
 
 
+def np_ols(data, yvar, xvar_list, keep_r2=False):
+    """
+    Wrapper of `np.linalg.lstsq(a,b)`, which sovles `a @ x = b` for x. Also calculate r2 and adj-r2
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        data
+    yvar : string
+        string of y variable
+    xvar : list of string
+        list of string of x variables
+    keep_r2 : bool
+        whether keep r-squared of adj. r-squared in result
+
+    Returns
+    -------
+    pd.DataFrame
+        Least-squares solutions of x, if b is k dimensional, then solutions in k columns. if `keep_r2 == True`, add two columns of `r2` and `adj_r2`
+        
+    Notes
+    -----
+    Under the hood, pseudoinverse is calculated using singular value decomposition (SVD), As any matrix can be decomposite as $A=U \Sigma V^T$, then pseudoinverse of matrix $A$ is $A^+ = V \Sigma^+ U^T$. `rcond` is used to set cut-off ratio for small singular values of in $\Sigma$. Setting `rcond=None` to silence the warning and use machine prcision as rcond parameter. 
+
+    [What does the rcond parameter of numpy.linalg.pinv do?](https://stackoverflow.com/questions/53949202/what-does-the-rcond-parameter-of-numpy-linalg-pinv-do)
+
+    [lstsq api](https://numpy.org/doc/stable/reference/generated/numpy.linalg.lstsq.html)
+    """
+
+    if keep_r2 == True:
+        beta, ssr, _, _ = np.linalg.lstsq(data[xvar_list], data[yvar], rcond=None)
+    
+        if ssr.size == 0:
+            X = np.mat(data[xvar_list])
+            y = np.mat(data[yvar]).T
+            y_hat = X @ np.mat(beta).T
+            ssr = sum(np.square(y-y_hat)).item()
+    
+        # match statsmodel
+        if any(i in ['intercept','Intercept','const'] for i  in xvar_list):
+            dof_model = len(xvar_list) - 1 # excluding intercept
+            # dof_total = n - 1
+            dof_total = data.shape[0] - 1
+            # centered sst
+            sst = sum((data[yvar] - data[yvar].mean())**2)
+        else:
+            dof_model = len(xvar_list)
+            # dof_total = n
+            dof_total = data.shape[0]
+            # uncentered sst
+            sst = sum((data[yvar]**2))
+
+        # calcuate r2 / adj_r2
+        dof_resid = dof_total - dof_model
+        mse_total = sst / dof_total
+        mse_resid = ssr / dof_resid
+        r2 = 1 - ssr/sst
+        adj_r2 = 1 - mse_resid / mse_total
+        
+        return pd.concat([pd.Series(beta), pd.Series(r2), pd.Series(adj_r2)])
+    
+    else:
+        beta, _, _, _ = np.linalg.lstsq(data[xvar_list], data[yvar], rcond=None)
+
+        return pd.Series(beta)
+
+    
+def scipy_ols(data, yvar, xvar_list):
+
+    from scipy.linalg import lstsq
+
+    beta, _, _, _ = lstsq(data[xvar_list], data[yvar], rcond=None)
+    
+    return pd.series(beta)
+
+
+def sm_ols(data, yvar, xvar_list):
+
+    import statsmodels.api as sm
+
+    res = sm.OLS(data[yvar], data[xvar_list]).fit(params_only=True)
+    
+    return res.params.reset_index(drop=True)
+
+
 def fama_macbeth(data, yvar, xvar_list, time='date', keep_r2=False):
     """
     Fama-macbeth regression (cross-sectional) for every t, `excess_return ~ beta' lambda`, regressing ret on beta to get time series of lambdas (factor risk premium)
@@ -292,11 +297,11 @@ def fama_macbeth(data, yvar, xvar_list, time='date', keep_r2=False):
     """
 
     if keep_r2:
-        estimated_lambdas = data.groupby(time).apply(__np_ols, yvar, xvar_list, keep_r2=True)
+        estimated_lambdas = data.groupby(time).apply(np_ols, yvar, xvar_list, keep_r2=True)
         # rename column names
         estimated_lambdas.columns = xvar_list + ['r2', 'adj-r2']
     else:
-        estimated_lambdas = data.groupby(time).apply(__np_ols, yvar, xvar_list)
+        estimated_lambdas = data.groupby(time).apply(np_ols, yvar, xvar_list)
         # rename column names
         estimated_lambdas.columns = xvar_list
 
