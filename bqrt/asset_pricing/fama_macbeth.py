@@ -21,19 +21,6 @@ def print_test():
     print(3)
 
 
-def kwargs_test(**kwargs):
-    """_summary_
-
-    >>> kwargs_test(yvar='ret', xvar=['intercept','MKT'])
-    1
-    """
-
-    if 'yvar' in kwargs and 'xvar' in kwargs:
-        yvar = kwargs['yvar']
-        xvar = kwargs['xvar']
-
-    return yvar, xvar
-
 def __np_ols(data, yvar, xvar, keep_r2=False):
     """
     Wrapper of `np.linalg.lstsq(a,b)`, which sovles `a @ x = b` for x.
@@ -74,7 +61,7 @@ def __np_ols(data, yvar, xvar, keep_r2=False):
             ssr = sum(np.square(y-y_hat)).item()
     
         # match statsmodel
-        if any(i in ['intercept','const'] for i  in xvar):
+        if any(i in ['intercept','Intercept','const'] for i  in xvar):
             dof_model = len(xvar) - 1 # excluding intercept
             # dof_total = n - 1
             dof_total = data.shape[0] - 1
@@ -87,6 +74,7 @@ def __np_ols(data, yvar, xvar, keep_r2=False):
             # uncentered sst
             sst = sum((data[yvar]**2))
 
+        # calcuate r2 / adj_r2
         dof_resid = dof_total - dof_model
         mse_total = sst / dof_total
         mse_resid = ssr / dof_resid
@@ -173,50 +161,87 @@ def from_formula(reg_formula: str):
     return yvar, xvar_list
 
 
-def fm_constant_beta(data, entity, yvar, xvar):
+def fm_constant_beta(data, yvar, xvar_list, time='date', entity='symbol'):
     """
-    Fisr step of Fama-Macbeth regression (unconditional)
-    Time series regression for every i (asset) from all periods, getting unconditional (look-ahead bias) betas, `excess_return_t ~ lambda_t` same period matching regression.
+    First pass of Fama-Macbeth regression (unconditional)
+    Time series regression (`excess_return_t ~ factor_t` same period matching regression.) for every i (asset) from all periods, getting unconditional (look-ahead bias) betas. Getting ready `fp_table` for second pass regression.
 
     Parameters
     ----------
-    data : _type_
-        _description_
-    entity : str
-        column of test assets
+    data : pd.DataFrame
+        long format dataframe for every date, every test asset, excess return and factor returns
     yvar : string
-        excess return of test asset
-    xvar : list of strings
-        factor lambda
+        column name of test asset excess return
+    xvar_list : list of strings
+        list of x variable column names
+    time: str
+        column name of datetime, by default 'date'
+    entity : str
+        column name of test asset symbols, by default 'symbol'
 
     Returns
     -------
-    pd.DataFrame, index of i, shape of (data['i'].nunique(), len(xvar))
-        return cross-sectional result of betas, list of estimated betas for every i
+    fp_table: pd.DataFrame
+        long format dataframe for second pass regression
 
     Note
     ----
-    Same as fama_macbeth groupby i instead of groupby t
+    First pass groupby time, second pass groupby entity
     """
 
-    estimated_betas = data.groupby(entity).apply(__np_ols, yvar, xvar)
-    estimated_betas.columns = xvar
+    constant_beta = data.groupby(entity).apply(__np_ols, yvar, xvar_list)
+    constant_beta.columns = xvar_list
+    constant_beta = constant_beta.reset_index()
+    
+    # no need to shift, since all betas are same across time
+    fp_table = data[[time, entity, yvar]].copy()
+    fp_table = pd.merge(fp_table, constant_beta, on=entity, how='left')
+    
+    return fp_table.sort_values([time, entity])
 
-    return estimated_betas
 
+def fm_rolling_beta(data, yvar, xvar_list, time='date', entity='symbol', window=120, min_nobs=None):
+    """
+    First pass regression of Fama-Macbeth regression (conditional)
+    Times series regression (`excess_return_t ~ factor_t` same period matching regression) of rolling windows, calcuate rolling betas without look-ahead bias
 
-def fm_rolling_beta(data, time, entity, yvar, xvar_list, window=120, min_nobs=None):
+    Parameters
+    ----------
+    data : pd.DataFrame
+        long format dataframe for every date, every test asset, excess return and factor returns
+    yvar : string
+        column name of test asset excess return
+    xvar_list : list of strings
+        list of x variable column names
+    time: str
+        column name of datetime, by default 'date'
+    entity : str
+        column name of test asset symbols, by default 'symbol'
+    window : int, optional
+        rolling window, by default 120
+    min_nobs : _type_, optional
+        minimum number of observation for rolling regression, by default None
+
+    Returns
+    -------
+    fp_table: pd.DataFrame
+        long format dataframe for second pass regression
+    
+    Note
+    ----
+    First pass groupby time, second pass groupby entity
+    """
     
     from tqdm.notebook import tqdm
     from statsmodels.regression.rolling import RollingOLS
     
     if min_nobs is None:
         min_nobs = window
-    
-    # keep timestampe in rolling_betas
+
     data = data.set_index('date')
     rolling_beta = pd.DataFrame()
-    for symb in tqdm(data[entity].unique()):
+    # run rolling regressions for every test aseets
+    for symb in tqdm(data[entity].unique(), leave=False):
         Y = data[data[entity] == symb][yvar]
         X = data[data[entity] == symb][xvar_list]
         rolling_ols = RollingOLS(Y, X, window=window, min_nobs=min_nobs)
@@ -228,11 +253,10 @@ def fm_rolling_beta(data, time, entity, yvar, xvar_list, window=120, min_nobs=No
     # must have time, entity as index, or group columns will be drop after groupby().shift()
     rolling_beta = rolling_beta.set_index([rolling_beta.index, entity])
     rolling_beta = rolling_beta.groupby(entity).shift(1).reset_index()
-    fm_table = data[[entity, yvar]].reset_index()
-    fm_table = fm_table.merge(rolling_beta, on=[time, entity], how='left')
-
-    return fm_table[[time, entity, yvar] + xvar_list].sort_values([time, entity])
-
+    fp_table = data[[entity, yvar]].reset_index()
+    fp_table = fp_table.merge(rolling_beta, on=[time, entity], how='left')
+    
+    return fp_table.sort_values([time, entity])
 
 def fama_macbeth(data, time, yvar, xvar, keep_r2=False):
     """
@@ -278,54 +302,10 @@ def fama_macbeth(data, time, yvar, xvar, keep_r2=False):
     return estimated_lambdas
 
 
-def fm_summary(lambd, HAC=False, **kwargs):
-    """
-    Describe time-series of variables, typical for describing factor risk premium or lambdas, only describe a set of variables or result of single fama-macbeth regression
-
-    Parameters
-    ----------
-    lambd : pd.DataFrame
-        `time` variable as index, variables in columns, if `t` time periods with k variables then Dataframe has a shape of (t,k) 
-    HAC : bool, optional
-        using HAC estimator or not, need to specify `maxlags` if True, i.e `maxlags=8`
-
-    Returns
-    -------
-    pd.DataFrame
-        based on pandas describe function adding standard error, t-statistic and p-value
-    """
-
-    from scipy import stats
-    import statsmodels.formula.api as smf
-
-    s = lambd.describe().T
-    # getting robust HAC estimators
-    if HAC:
-        if ('maxlags' in kwargs):
-            maxlags = kwargs['maxlags']
-            full_xvars = lambd.columns.to_list()
-            std_error = []
-            for var in full_xvars:
-                # calculate individual Newey-West adjusted standard error using `smf.ols`
-                reg = smf.ols('{} ~ 1'.format(var), data=lambd).fit(cov_type='HAC', cov_kwds={'maxlags':maxlags})
-                std_error.append(reg.bse[0])
-            s['std_error'] = std_error
-        else:
-            print('`maxlag` is needed to computer HAC')
-    else:
-        # nonrobust estimators
-        s['std_error'] = s['std'] / np.sqrt(s['count'])
-
-    # t-statistics
-    s['tstat'] = s['mean'] / s['std_error']
-    # 2-sided p-value for the t-statistic
-    s['pval'] = stats.t.sf(np.abs(s['tstat']), s['count'] - 1) * 2
-
-    return s
-
-
 def fm_2nd_pass_reglist(data, time, reglist, HAC=False, **kwargs):
     """
+    [TODO] rewrite to match `fm_two_pass_reglist` summary only contains lambda
+    
     Running multiple only second-pass of fama-macbeth regression from `reglist`. When using firm characteristics as betas, there's no need to estimate betas from first pass with factor risk premium.  
 
     Parameters
@@ -361,98 +341,152 @@ def fm_2nd_pass_reglist(data, time, reglist, HAC=False, **kwargs):
         if HAC:
             if ('maxlags' in kwargs):
                 maxlags = kwargs['maxlags']
-                s = fm_summary(lambd, HAC=True, maxlags=maxlags)
+                s = desc_lambda(lambd, HAC=True, maxlags=maxlags)
                 summary['summary'].append(s)
             else:
                 print('`maxlag` is needed to computer HAC')
         # nonrobust estimator
         else:
-            s = fm_summary(lambd)
+            s = desc_lambda(lambd)
             summary['summary'].append(s)
 
     return summary
 
 
-def fm_two_pass_reglist(data, time, entity, reglist, rolling:int=None, sc_interp=True):
+def fm_two_pass_reglist(data, reglist, time='date', entity='symbol', window=None, min_nobs=None, sp_interp=True):
     """
     Running multiple two-pass fama-macbeth regression from `reglist`, return time series of lambdas 
 
     standard fama-macbeth two-pass regression: 1) get estimated beta_{t} from `r_{t} ~ beta_{t} lambda_{t}` 2) get estimated lambda_{t+1} from `r_{t+1} ~ beta{t} \lambda{t+1}`
 
-    [TODO] rolling beta
-    
     Need to make sure last formula in `reglist` contains all x variables, which is determing maximum number of x variables.
 
     Parameters
     ----------
     data : pd.DataFrame
         dataframe contains excess return and factor beta (exposure) in long format (test asssts and t in rows, factors in columns)
-    time : string
-        column name of date/time/periods
-    entity : str
-        column of test assets
     reglist : list
         list of R-like regression formula, last regression contains full x variables
-    sc_interp : bool, optional
+    sp_interp : bool, optional
         set an intercept or not for second-pass fama-macbeth regression
+    time: str
+        column name of datetime, by default 'date'
+    entity : str
+        column name of test asset symbols, by default 'symbol'
 
     Returns
     -------
-    _type_
-        _description_
+    summary: dict
+        with keys of 'fp_table', 'lambda', 'r2', accessing `fp_table` result from first item of reglist by `summary['fp_table][0]`
+
+    Note
+    ----
+    last equation from reglist need to contains all x variables
     """
 
     from tqdm.notebook import tqdm
 
+    assert isinstance(reglist, list), 'reglist must be a list'
+
     # initialized
     summary = {}
-    summary['beta'] = []
-    summary['lambda'] = []
-    summary['r2'] = []
+    summary['fp_table'] = [] # first-pass result
+    summary['lambda'] = [] # second-pass
+    summary['r2'] = [] # second_pass
+    
+    data = data.sort_values([time, entity]).reset_index()
     #  reglist for-loop
     for reg in tqdm(reglist, desc='Reg No.'):
         yvar, xvar_list = from_formula(reg)
-        
-        # first pass intercept by default
+
+        # first pass
+        # intercept by default
+        # comment out these two lines to regress without intercept
         data['intercept'] = 1
-
+        xvar_list = ['intercept'] + xvar_list
+        
         # constant beta vs rolling beta
-        if rolling != None:
-            # TODO
-            pass
+        if window is not None:
+            fp_table = fm_rolling_beta(data, yvar, xvar_list, window=window, min_nobs=min_nobs)
         else:
-            # index is symbol
-            est_beta = fm_constant_beta(data, entity, yvar, ['intercept'] + xvar_list)
-        summary['beta'].append(est_beta)
-
-        # setting up for second pass, one-step lead-lag regression
-        fm_table = data[[time,entity,yvar]].copy()
-        fm_table.loc[:,yvar] = fm_table.groupby(entity)[yvar].shift(-1)
-        fm_table = fm_table.dropna()
-        fm_table = pd.merge(fm_table, est_beta, on=entity, how='left')
-
-        # second pass interept, keep_r2=True
-        if sc_interp:
-            fm_table['intercept'] = 1
-            res = fama_macbeth(fm_table, time, yvar, ['intercept'] + xvar_list, keep_r2=True)
-            summary['lambda'].append(res[['intercept'] + xvar_list])
+            fp_table = fm_constant_beta(data, yvar, xvar_list)
+        summary['fp_table'].append(fp_table)
+        
+        # second pass
+        # nan create 'SVD did not converge in Linear Least Squares' error
+        fp_table = fp_table.dropna().copy()
+        if sp_interp:
+            fp_table['intercept'] = 1
+            res = fama_macbeth(fp_table, time, yvar, xvar_list, keep_r2=True)
+            summary['lambda'].append(res[xvar_list])
             summary['r2'].append(res[['r2', 'adj-r2']])
         else:
-            res = fama_macbeth(fm_table, time, yvar, xvar_list, keep_r2=True)
+            # remove intercept from xvar_list
+            if 'intercept' in xvar_list:
+                xvar_list.remove('intercept')
+            res = fama_macbeth(fp_table, time, yvar, xvar_list, keep_r2=True)
             summary['lambda'].append(res[xvar_list])
             summary['r2'].append(res[['r2', 'adj-r2']])
 
     return summary
 
 
-def fama_macbeth_summary(s, HAC=False, maxlags:int=None, params_digi:int=4, tstat_digi:int=2):
+def desc_lambda(lambd, HAC=False, **kwargs):
     """
-    Taking results from `fm_two_pass_reglist` and `fm_2pass_reglist` returning financial research journal format summary table. Results are reported in either nonrobust or HAC estimators. 
+    [TODO] one-side t-test
+    
+    Describe time-series of variables, typical for describing factor risk premium or lambdas, only describe a set of variables or result of single fama-macbeth regression
+
+    Parameters
+    ----------
+    lambd : pd.DataFrame
+        datetime index, factor lambda in columns, if `t` time periods with k variables then Dataframe has a shape of (t,k) 
+    HAC : bool, optional
+        using HAC estimator or not, need to specify `maxlags` if True, i.e `maxlags=8`
+
+    Returns
+    -------
+    pd.DataFrame
+        based on pandas describe function adding standard error, t-statistic and p-value
+    """
+
+    from scipy import stats
+    import statsmodels.formula.api as smf
+
+    if HAC:
+        assert 'maxlags' in kwargs, 'maxlags is needed'
+
+    s = lambd.describe().T
+    # getting robust HAC estimators
+    if HAC:
+        maxlags = kwargs['maxlags']
+        xvar_list = lambd.columns.to_list()
+        std_error = []
+        for var in xvar_list:
+            # calculate individual Newey-West adjusted standard error using `smf.ols`
+            reg = smf.ols('{} ~ 1'.format(var), data=lambd).fit(cov_type='HAC', cov_kwds={'maxlags':maxlags})
+            std_error.append(reg.bse[0])
+        s['std_error'] = std_error
+    # nonrobust estimators
+    else:
+        s['std_error'] = s['std'] / np.sqrt(s['count'])
+
+    # t-statistics
+    s['tstat'] = s['mean'] / s['std_error']
+    # 2-sided p-value for the t-statistic
+    s['pval'] = stats.t.sf(np.abs(s['tstat']), s['count'] - 1) * 2
+
+    return s
+
+
+def fm_summary(s, HAC=False, maxlags:int=None, params_digi:int=4, tstat_digi:int=2):
+    """
+    Taking results from `fm_2nd_pass_reglist` and `fm_two_pass_reglist` returning financial research journal format summary table. Results can be reported in either nonrobust or HAC estimators. 
 
     Parameters
     ----------
     s : dictionary
-        dictionary of results from `fama_macbeth_reglist` funtion
+        dictionary of results from `fm_2nd_pass_reglis` or `fm_two_pass_reglist` funtion
     HAC : bool, optional
         using HAC estimator or not, need to specify `maxlags` if True, i.e `maxlags=8`
     maxlags : int, optional
@@ -469,10 +503,10 @@ def fama_macbeth_summary(s, HAC=False, maxlags:int=None, params_digi:int=4, tsta
     """
 
     # using last formula to get all x variables
-    full_xvars = s['lambda'][-1].columns.to_list()
+    xvar_list = s['lambda'][-1].columns.to_list()
 
     # create reporting table
-    summary_tbl_rows = sum([[var, '{}_t'.format(var)] for var in full_xvars], [])
+    summary_tbl_rows = sum([[var, '{}_t'.format(var)] for var in xvar_list], [])
     summary_tbl_cols = ['({})'.format(i+1) for i in range(len(s['lambda']))]
     summary_tbl = pd.DataFrame(index=summary_tbl_rows, columns=summary_tbl_cols)
 
@@ -483,10 +517,10 @@ def fama_macbeth_summary(s, HAC=False, maxlags:int=None, params_digi:int=4, tsta
 
         # HAC estimator
         if HAC:
-            d = fm_summary(s['lambda'][reg_no], HAC=True, maxlags=maxlags)
+            d = desc_lambda(s['lambda'][reg_no], HAC=True, maxlags=maxlags)
         # nonrobust estimator
         else:
-            d = fm_summary(s['lambda'][reg_no])
+            d = desc_lambda(s['lambda'][reg_no])
         
         for var in d.index.to_list():
             # getting p-values to determine significant level
@@ -506,7 +540,7 @@ def fama_macbeth_summary(s, HAC=False, maxlags:int=None, params_digi:int=4, tsta
             summary_tbl.loc['{}_t'.format(var), model_no] = '({:.{prec}f})'.format(d.loc[var, 'tstat'], prec=tstat_digi)
 
     # replacing `var_t` index with whitespace,
-    summary_tbl.index = sum([[var, ''.format(var)] for var in full_xvars], [])
+    summary_tbl.index = sum([[var, ''.format(var)] for var in xvar_list], [])
 
     # add r^2 and adj-R^2
     r2 = pd.DataFrame([i.mean() for i in s['r2']], index=['({})'.format(i) for i in range(1,total_reg_no +1)])
