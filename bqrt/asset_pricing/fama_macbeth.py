@@ -215,21 +215,21 @@ def fm_rolling_beta(data, time, entity, yvar, xvar_list, window=120, min_nobs=No
     
     # keep timestampe in rolling_betas
     data = data.set_index('date')
-    rolling_betas = pd.DataFrame()
+    rolling_beta = pd.DataFrame()
     for symb in tqdm(data[entity].unique()):
         Y = data[data[entity] == symb][yvar]
         X = data[data[entity] == symb][xvar_list]
         rolling_ols = RollingOLS(Y, X, window=window, min_nobs=min_nobs)
         to_add = rolling_ols.fit(params_only=True).params[xvar_list]
         to_add[entity] = symb
-        rolling_betas = pd.concat([rolling_betas, to_add],axis='rows')
+        rolling_beta = pd.concat([rolling_beta, to_add],axis='rows')
 
     # setup for second step lead-lag regression
     # must have time, entity as index, or group columns will be drop after groupby().shift()
-    rolling_betas = rolling_betas.set_index([rolling_betas.index, entity])
-    rolling_betas = rolling_betas.groupby(entity).shift(1).reset_index()
+    rolling_beta = rolling_beta.set_index([rolling_beta.index, entity])
+    rolling_beta = rolling_beta.groupby(entity).shift(1).reset_index()
     fm_table = data[[entity, yvar]].reset_index()
-    fm_table = fm_table.merge(rolling_betas, on=[time, entity], how='left')
+    fm_table = fm_table.merge(rolling_beta, on=[time, entity], how='left')
 
     return fm_table[[time, entity, yvar] + xvar_list].sort_values([time, entity])
 
