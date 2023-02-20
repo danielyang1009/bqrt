@@ -336,7 +336,7 @@ def fm_2nd_pass_reglist(data, reglist, time='date', interp=True):
         if interp:
             data['intercept'] = 1
             res = fama_macbeth(data, yvar, ['intercept'] + xvar_list, time=time, keep_r2=True)
-            summary['lambda'].append(res[xvar_list])
+            summary['lambda'].append(res[['intercept']+ xvar_list])
             summary['r2'].append(res[['r2', 'adj-r2']])
         else:
             res = fama_macbeth(data, yvar, xvar_list, time=time, keep_r2=True)
