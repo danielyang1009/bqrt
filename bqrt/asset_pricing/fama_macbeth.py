@@ -21,7 +21,7 @@ def print_test():
     print(3)
 
 
-def __np_ols(data, yvar, xvar, keep_r2=False):
+def __np_ols(data, yvar, xvar_list, keep_r2=False):
     """
     Wrapper of `np.linalg.lstsq(a,b)`, which sovles `a @ x = b` for x.
     
@@ -52,23 +52,23 @@ def __np_ols(data, yvar, xvar, keep_r2=False):
     """
 
     if keep_r2 == True:
-        beta, ssr, _, _ = np.linalg.lstsq(data[xvar], data[yvar], rcond=None)
+        beta, ssr, _, _ = np.linalg.lstsq(data[xvar_list], data[yvar], rcond=None)
     
         if ssr.size == 0:
-            X = np.mat(data[xvar])
+            X = np.mat(data[xvar_list])
             y = np.mat(data[yvar]).T
             y_hat = X @ np.mat(beta).T
             ssr = sum(np.square(y-y_hat)).item()
     
         # match statsmodel
-        if any(i in ['intercept','Intercept','const'] for i  in xvar):
-            dof_model = len(xvar) - 1 # excluding intercept
+        if any(i in ['intercept','Intercept','const'] for i  in xvar_list):
+            dof_model = len(xvar_list) - 1 # excluding intercept
             # dof_total = n - 1
             dof_total = data.shape[0] - 1
             # centered sst
             sst = sum((data[yvar] - data[yvar].mean())**2)
         else:
-            dof_model = len(xvar)
+            dof_model = len(xvar_list)
             # dof_total = n
             dof_total = data.shape[0]
             # uncentered sst
@@ -84,19 +84,19 @@ def __np_ols(data, yvar, xvar, keep_r2=False):
         return pd.concat([pd.Series(beta), pd.Series(r2), pd.Series(adj_r2)])
     
     else:
-        beta, _, _, _ = np.linalg.lstsq(data[xvar], data[yvar], rcond=None)
+        beta, _, _, _ = np.linalg.lstsq(data[xvar_list], data[yvar], rcond=None)
 
         return pd.Series(beta)
 
 
-def __sm_ols(data, yvar, xvar, interp=False):
+def __sm_ols(data, yvar, xvar_list, interp=False):
 
     import statsmodels.api as sm
 
     if interp:
-        res = sm.OLS(data[yvar], sm.add_constant(data[xvar])).fit()
+        res = sm.OLS(data[yvar], sm.add_constant(data[xvar_list])).fit()
     else:
-        res = sm.OLS(data[yvar], data[xvar]).fit()
+        res = sm.OLS(data[yvar], data[xvar_list]).fit()
     
     return res
 
@@ -258,7 +258,8 @@ def fm_rolling_beta(data, yvar, xvar_list, time='date', entity='symbol', window=
     
     return fp_table.sort_values([time, entity])
 
-def fama_macbeth(data, time, yvar, xvar, keep_r2=False):
+
+def fama_macbeth(data, yvar, xvar_list, time='date', keep_r2=False):
     """
     Fama-macbeth regression (cross-sectional) for every t, `excess_return ~ beta' lambda`, regressing ret on beta to get time series of lambdas (factor risk premium)
 
@@ -291,18 +292,18 @@ def fama_macbeth(data, time, yvar, xvar, keep_r2=False):
     """
 
     if keep_r2:
-        estimated_lambdas = data.groupby(time).apply(__np_ols, yvar, xvar, keep_r2=True)
+        estimated_lambdas = data.groupby(time).apply(__np_ols, yvar, xvar_list, keep_r2=True)
         # rename column names
-        estimated_lambdas.columns = xvar + ['r2', 'adj-r2']
+        estimated_lambdas.columns = xvar_list + ['r2', 'adj-r2']
     else:
-        estimated_lambdas = data.groupby(time).apply(__np_ols, yvar, xvar)
+        estimated_lambdas = data.groupby(time).apply(__np_ols, yvar, xvar_list)
         # rename column names
-        estimated_lambdas.columns = xvar
+        estimated_lambdas.columns = xvar_list
 
     return estimated_lambdas
 
 
-def fm_2nd_pass_reglist(data, time, reglist, HAC=False, **kwargs):
+def fm_2nd_pass_reglist(data, reglist, time='date', HAC=False, **kwargs):
     """
     [TODO] rewrite to match `fm_two_pass_reglist` summary only contains lambda
     
@@ -407,9 +408,9 @@ def fm_two_pass_reglist(data, reglist, time='date', entity='symbol', window=None
         
         # constant beta vs rolling beta
         if window is not None:
-            fp_table = fm_rolling_beta(data, yvar, xvar_list, window=window, min_nobs=min_nobs)
+            fp_table = fm_rolling_beta(data, yvar, xvar_list, time=time, entity=entity, window=window, min_nobs=min_nobs)
         else:
-            fp_table = fm_constant_beta(data, yvar, xvar_list)
+            fp_table = fm_constant_beta(data, yvar, xvar_list, time=time, entity=entity)
         summary['fp_table'].append(fp_table)
         
         # second pass
@@ -417,14 +418,14 @@ def fm_two_pass_reglist(data, reglist, time='date', entity='symbol', window=None
         fp_table = fp_table.dropna().copy()
         if sp_interp:
             fp_table['intercept'] = 1
-            res = fama_macbeth(fp_table, time, yvar, xvar_list, keep_r2=True)
+            res = fama_macbeth(fp_table, yvar, xvar_list, time=time, keep_r2=True)
             summary['lambda'].append(res[xvar_list])
             summary['r2'].append(res[['r2', 'adj-r2']])
         else:
             # remove intercept from xvar_list
             if 'intercept' in xvar_list:
                 xvar_list.remove('intercept')
-            res = fama_macbeth(fp_table, time, yvar, xvar_list, keep_r2=True)
+            res = fama_macbeth(fp_table, yvar, xvar_list, time=time, keep_r2=True)
             summary['lambda'].append(res[xvar_list])
             summary['r2'].append(res[['r2', 'adj-r2']])
 
