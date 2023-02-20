@@ -303,9 +303,8 @@ def fama_macbeth(data, yvar, xvar_list, time='date', keep_r2=False):
     return estimated_lambdas
 
 
-def fm_2nd_pass_reglist(data, reglist, time='date', HAC=False, **kwargs):
+def fm_2nd_pass_reglist(data, reglist, time='date', interp=True):
     """
-    [TODO] rewrite to match `fm_two_pass_reglist` summary only contains lambda
     
     Running multiple only second-pass of fama-macbeth regression from `reglist`. When using firm characteristics as betas, there's no need to estimate betas from first pass with factor risk premium.  
 
@@ -313,12 +312,10 @@ def fm_2nd_pass_reglist(data, reglist, time='date', HAC=False, **kwargs):
     ----------
     data : pd.DataFrame
         dataframe contains excess return and factor beta (exposure) in long format (test asssts and t in rows, factors in columns)
-    time : string
-        column name of date/time/periods
     reglist : list
         list of R-like regression formula, last regression contains full x variables
-    HAC : bool, optional
-        using HAC estimator or not, need to specify `maxlags` if True, i.e `maxlags=8`
+    time: str
+        column name of datetime, by default 'date'
 
     Returns
     -------
@@ -330,26 +327,21 @@ def fm_2nd_pass_reglist(data, reglist, time='date', HAC=False, **kwargs):
 
     # initialized
     summary = {}
-    summary['lambda'], summary['summary'] = [], []
-    #  reglist for-loop
+    summary['lambda'] = []
+    summary['r2'] = []
+
     for reg in tqdm(reglist, desc='Reg No.'):
         yvar, xvar_list = from_formula(reg)
 
-        lambd = fama_macbeth(data, time, yvar, xvar_list)
-        summary['lambda'].append(lambd)
-
-        # HAC estimator
-        if HAC:
-            if ('maxlags' in kwargs):
-                maxlags = kwargs['maxlags']
-                s = desc_lambda(lambd, HAC=True, maxlags=maxlags)
-                summary['summary'].append(s)
-            else:
-                print('`maxlag` is needed to computer HAC')
-        # nonrobust estimator
+        if interp:
+            data['intercept'] = 1
+            res = fama_macbeth(data, yvar, ['intercept'] + xvar_list, time=time, keep_r2=True)
+            summary['lambda'].append(res[xvar_list])
+            summary['r2'].append(res[['r2', 'adj-r2']])
         else:
-            s = desc_lambda(lambd)
-            summary['summary'].append(s)
+            res = fama_macbeth(data, yvar, xvar_list, time=time, keep_r2=True)
+            summary['lambda'].append(res[xvar_list])
+            summary['r2'].append(res[['r2', 'adj-r2']])
 
     return summary
 
@@ -379,10 +371,6 @@ def fm_two_pass_reglist(data, reglist, time='date', entity='symbol', window=None
     -------
     summary: dict
         with keys of 'fp_table', 'lambda', 'r2', accessing `fp_table` result from first item of reglist by `summary['fp_table][0]`
-
-    Note
-    ----
-    last equation from reglist need to contains all x variables
     """
 
     from tqdm.notebook import tqdm
