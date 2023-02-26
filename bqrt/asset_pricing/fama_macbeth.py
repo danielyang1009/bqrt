@@ -81,104 +81,6 @@ def from_formula(reg_formula: str):
     return yvar, xvar_list
 
 
-def fm_constant_beta(data, yvar, xvar_list, time='date', entity='symbol'):
-    """
-    First pass of Fama-Macbeth regression (unconditional)
-    Time series regression (`excess_return_t ~ factor_t` same period matching regression.) for every i (asset) from all periods, getting unconditional (look-ahead bias) betas. Getting ready `fp_table` for second pass regression.
-
-    Parameters
-    ----------
-    data : pd.DataFrame
-        long format dataframe for every date, every test asset, excess return and factor returns
-    yvar : string
-        column name of test asset excess return
-    xvar_list : list of strings
-        list of x variable column names
-    time: str
-        column name of datetime, by default 'date'
-    entity : str
-        column name of test asset symbols, by default 'symbol'
-
-    Returns
-    -------
-    fp_table: pd.DataFrame
-        long format dataframe for second pass regression
-
-    Note
-    ----
-    First pass groupby time, second pass groupby entity
-    """
-
-    constant_beta = data.groupby(entity).apply(__np_ols, yvar, xvar_list)
-    constant_beta.columns = xvar_list
-    constant_beta = constant_beta.reset_index()
-    
-    # no need to shift, since all betas are same across time
-    fp_table = data[[time, entity, yvar]].copy()
-    fp_table = pd.merge(fp_table, constant_beta, on=entity, how='left')
-    
-    return fp_table.sort_values([time, entity])
-
-
-def fm_rolling_beta(data, yvar, xvar_list, time='date', entity='symbol', window=120, min_nobs=None):
-    """
-    First pass regression of Fama-Macbeth regression (conditional)
-    Times series regression (`excess_return_t ~ factor_t` same period matching regression) of rolling windows, calcuate rolling betas without look-ahead bias
-
-    Parameters
-    ----------
-    data : pd.DataFrame
-        long format dataframe for every date, every test asset, excess return and factor returns
-    yvar : string
-        column name of test asset excess return
-    xvar_list : list of strings
-        list of x variable column names
-    time: str
-        column name of datetime, by default 'date'
-    entity : str
-        column name of test asset symbols, by default 'symbol'
-    window : int, optional
-        rolling window, by default 120
-    min_nobs : _type_, optional
-        minimum number of observation for rolling regression, by default None
-
-    Returns
-    -------
-    fp_table: pd.DataFrame
-        long format dataframe for second pass regression
-    
-    Note
-    ----
-    First pass groupby time, second pass groupby entity
-    """
-    
-    from tqdm.notebook import tqdm
-    from statsmodels.regression.rolling import RollingOLS
-    
-    if min_nobs is None:
-        min_nobs = window
-
-    data = data.set_index('date')
-    rolling_beta = pd.DataFrame()
-    # run rolling regressions for every test aseets
-    for symb in tqdm(data[entity].unique(), leave=False):
-        Y = data[data[entity] == symb][yvar]
-        X = data[data[entity] == symb][xvar_list]
-        rolling_ols = RollingOLS(Y, X, window=window, min_nobs=min_nobs)
-        to_add = rolling_ols.fit(params_only=True).params[xvar_list]
-        to_add[entity] = symb
-        rolling_beta = pd.concat([rolling_beta, to_add],axis='rows')
-
-    # setup for second step lead-lag regression
-    # must have time, entity as index, or group columns will be drop after groupby().shift()
-    rolling_beta = rolling_beta.set_index([rolling_beta.index, entity])
-    rolling_beta = rolling_beta.groupby(entity).shift(1).reset_index()
-    fp_table = data[[entity, yvar]].reset_index()
-    fp_table = fp_table.merge(rolling_beta, on=[time, entity], how='left')
-    
-    return fp_table.sort_values([time, entity])
-
-
 def np_ols(data, yvar, xvar_list, keep_r2=False):
     """
     Wrapper of `np.linalg.lstsq(a,b)`, which sovles `a @ x = b` for x. Also calculate r2 and adj-r2
@@ -262,6 +164,104 @@ def sm_ols(data, yvar, xvar_list):
     res = sm.OLS(data[yvar], data[xvar_list]).fit(params_only=True)
     
     return res.params.reset_index(drop=True)
+
+
+def fm_constant_beta(data, yvar, xvar_list, time='date', entity='symbol'):
+    """
+    First pass of Fama-Macbeth regression (unconditional)
+    Time series regression (`excess_return_t ~ factor_t` same period matching regression.) for every i (asset) from all periods, getting unconditional (look-ahead bias) betas. Getting ready `fp_table` for second pass regression.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        long format dataframe for every date, every test asset, excess return and factor returns
+    yvar : string
+        column name of test asset excess return
+    xvar_list : list of strings
+        list of x variable column names
+    time: str
+        column name of datetime, by default 'date'
+    entity : str
+        column name of test asset symbols, by default 'symbol'
+
+    Returns
+    -------
+    fp_table: pd.DataFrame
+        long format dataframe for second pass regression
+
+    Note
+    ----
+    First pass groupby time, second pass groupby entity
+    """
+
+    constant_beta = data.groupby(entity).apply(np_ols, yvar, xvar_list)
+    constant_beta.columns = xvar_list
+    constant_beta = constant_beta.reset_index()
+    
+    # no need to shift, since all betas are same across time
+    fp_table = data[[time, entity, yvar]].copy()
+    fp_table = pd.merge(fp_table, constant_beta, on=entity, how='left')
+    
+    return fp_table.sort_values([time, entity])
+
+
+def fm_rolling_beta(data, yvar, xvar_list, time='date', entity='symbol', window=120, min_nobs=None):
+    """
+    First pass regression of Fama-Macbeth regression (conditional)
+    Times series regression (`excess_return_t ~ factor_t` same period matching regression) of rolling windows, calcuate rolling betas without look-ahead bias
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        long format dataframe for every date, every test asset, excess return and factor returns
+    yvar : string
+        column name of test asset excess return
+    xvar_list : list of strings
+        list of x variable column names
+    time: str
+        column name of datetime, by default 'date'
+    entity : str
+        column name of test asset symbols, by default 'symbol'
+    window : int, optional
+        rolling window, by default 120
+    min_nobs : _type_, optional
+        minimum number of observation for rolling regression, by default None
+
+    Returns
+    -------
+    fp_table: pd.DataFrame
+        long format dataframe for second pass regression
+    
+    Note
+    ----
+    First pass groupby time, second pass groupby entity
+    """
+    
+    from tqdm.notebook import tqdm
+    from statsmodels.regression.rolling import RollingOLS
+    
+    if min_nobs is None:
+        min_nobs = window
+
+    data = data.set_index('date')
+    rolling_beta = pd.DataFrame()
+    # run rolling regressions for every test aseets
+    for symb in tqdm(data[entity].unique(), leave=False):
+        Y = data[data[entity] == symb][yvar]
+        X = data[data[entity] == symb][xvar_list]
+        rolling_ols = RollingOLS(Y, X, window=window, min_nobs=min_nobs)
+        to_add = rolling_ols.fit(params_only=True).params[xvar_list]
+        to_add[entity] = symb
+        rolling_beta = pd.concat([rolling_beta, to_add],axis='rows')
+
+    # setup for second step lead-lag regression
+    # must have time, entity as index, or group columns will be drop after groupby().shift()
+    rolling_beta = rolling_beta.set_index([rolling_beta.index, entity])
+    rolling_beta = rolling_beta.groupby(entity).shift(1).reset_index()
+    fp_table = data[[entity, yvar]].reset_index()
+    fp_table = fp_table.merge(rolling_beta, on=[time, entity], how='left')
+    
+    return fp_table.sort_values([time, entity])
 
 
 def fama_macbeth(data, yvar, xvar_list, time='date', keep_r2=False):
