@@ -44,9 +44,84 @@ def port_vw_return(mv_raw, ret_raw):
     return mv_df.mul(ret_df).sum(axis='columns')
 
 
+def qcut_wrapper(data, bins_list, lables):
+    """
+    Wrapper of `pd.qcut`, in case of ValueError, print out that row of data, drop
+
+    Parameters
+    ----------
+    data_list : pd.Series or list
+        list for qcut
+    b_list : list
+        list of to create unequal sample size bins,in format of `[30, 40, 30]`, by default None
+    lables : list
+        how bins are labeled
+
+    Returns
+    -------
+    result : pd.Series
+        labeled result of quct
+    """
+
+    assert isinstance(data, pd.Series) | isinstance(data, list), 'x must be pd.Series or list'
+
+    try:
+        result = pd.qcut(data, bins_list, lables)
+    except ValueError:
+        print(data)
+        result = [np.nan]*len(data)
+    return result
+
+
+def qcut_debug(data, bins_list):
+    """
+    Try if `pd.qcut` can be performed on time-series of data (DatetimeIndex)
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        DataFrame with DatetimeIndex
+    b_list : list
+        list of to create unequal sample size bins,in format of `[30, 40, 30]`, by default None
+    """
+    for date in data.index:
+        try:
+            pd.qcut(data.loc[date], bins_list)
+        except ValueError
+            print(date)
+
+
 def portfolio_sort(sig_raw, ret_raw, scheme, b_num=None, b_list=None):
     """
     Calculating 1 step forward portfolios return based on signal dataframe, by different scheme methods. All inputs are in format of wide-table (date as index, individual asset as columns).
+
+    注意：
+    - 【手动】计算前需要确保每行有足够的数据进行分组
+
+    计算过程，两表日期表相同的前提下（index为时间，columns为品种）：
+    1. 根据收益率表，通过`shift(1)`指标表，对指标表建立一个mask（后续转化为权重表）
+        - 确保：指标表（权重表）的后一步，一定存在收益数据
+        - 当t指标表有值，t+1收益表无值：根据收益表mask，去除指标表原值，不参与计算
+        - 当t指标表无值，t+1收益表有值：根据mask保留指标表值，原值为NaN，不影响计算，同样不参与计算
+    2. 对于需要计算权重如rank方法：
+        - 将mask后的指标表，转化为权重表
+        - 再将权重表（`shift(1)`）与收益表相乘`DataFrame.mul`，`shift(1)`为了保证结果的日期是正确的
+    3. 对于等权重计算如qcut方法
+        - 则可以根据分组，直接计算组内均值。
+
+    scheme = qcut 或 rank 或 zero
+    - qcut
+        - b_num，等证券数量分组：等权重
+        - b_list，自定义分组：标记方法：[30,40,30]，等权重
+        - 返回所有组数据
+    - rank
+        - 根据rank计算权重（做多rank最高，做多rank最低），并使得所有做多品种权重与所有做空品种权重，分别为1与-1
+        - 注意使用sum时，即便行内所有值都为np.nan，求和结果为0，需要重新调整为np.nan
+        - 返回一列结果
+    - zero
+        - 等权重
+        - 排除carry为0，不升水也不贴水
+        - 返回两列结果，升水与贴水
 
     Parameters
     ----------
@@ -85,7 +160,7 @@ def portfolio_sort(sig_raw, ret_raw, scheme, b_num=None, b_list=None):
     # 若为下一期ret为np.nan，则标记为sig_fg对应位置np.nan，该个体不参与后续ret计算
     sig_df = sig_df.shift(1)[ret_df.notnull()]
 
-#     print(b_num, b_list)
+
     if scheme == 'qcut':
         # assertion
         assert (b_num is not None) ^ (b_list is not None), '提供b_num或b_list两者其一'
@@ -104,7 +179,8 @@ def portfolio_sort(sig_raw, ret_raw, scheme, b_num=None, b_list=None):
 #         print(bins_list)
 
         # 若行全为np.nan则无法计算，进行分组，并标记为1,2,3,...(int)
-        rank_mask = sig_df[~sig_df.isna().all(axis=1)].apply(lambda x: pd.qcut(x,bins_list,range(1,bins_num+1)), axis=1)
+        # rank_mask = sig_df[~sig_df.isna().all(axis=1)].apply(lambda x: pd.qcut(x,bins_list,range(1,bins_num+1)), axis=1)
+        rank_mask = sig_df[~sig_df.isna().all(axis=1)].apply(lambda x: qcut_wrapper(x,bins_list,range(1,bins_num+1)), axis=1)
         # 输出结果
         result = pd.DataFrame()
         for group in range(1, bins_num+1):
