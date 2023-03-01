@@ -87,7 +87,7 @@ def qcut_debug(data, bins_list):
     for date in data.index:
         try:
             pd.qcut(data.loc[date], bins_list)
-        except ValueError
+        except ValueError:
             print(date)
 
 
