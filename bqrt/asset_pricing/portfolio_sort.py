@@ -2,10 +2,7 @@
 Portfolio Sort
 --------------
 
-TODO:
-- 增加min_nobs，数量太少无法分组
-- 增加计算ret的权重value-weighted（同期）
-- 考虑双重排序，先对市值排序，而后对beta或sig_df排序
+目前对于无法qcut的处理方法是直接略过该组，全部标记为nan，并打印该组
 """
 
 import pandas as pd
