@@ -16,7 +16,7 @@ from scipy.special import erf
 def describe(df:pd.DataFrame, params_digi:int=4, tstat_digi:int=2):
     """
     Create pandas describe like dataframe, contains skewness and kurtosis, t-statistics and p-value
-    
+
     Need to have `dropna` first.
 
     Parameters
@@ -41,7 +41,8 @@ def describe(df:pd.DataFrame, params_digi:int=4, tstat_digi:int=2):
     df = df.select_dtypes(include='float')
 
     for col in df.columns.to_list():
-        des = stats.describe(df[col])
+        des = stats.describe(df[col], nan_policy='omit')
+        ttest = stats.ttest_1samp(df[col],0,nan_policy='omit')
         parts = {
             'Count': '{}'.format(int(des.nobs)),
             'Mean': params_format.format(des.mean),
@@ -56,8 +57,8 @@ def describe(df:pd.DataFrame, params_digi:int=4, tstat_digi:int=2):
             'Max': params_format.format(des.minmax[1]),
             'Skew': params_format.format(des.skewness),
             'Kurt': params_format.format(des.kurtosis),
-            'T-stat': tstat_format.format(stats.ttest_1samp(df[col],0)[0]),
-            'P-val': tstat_format.format(stats.ttest_1samp(df[col],0)[1])
+            'T-stat': tstat_format.format(ttest[0]),
+            'P-val': tstat_format.format(ttest[1])
         }
         result_list.append(parts)
         result = pd.DataFrame(result_list).T

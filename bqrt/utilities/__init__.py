@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from .date import *
 from .stats import *
+from .plot import *
 
 import pandas as pd
 # import numpy as np

@@ -35,7 +35,14 @@ def show_sig_only(s):
     return s
 
 
-def singl_ts(yvar_data, yvar_list, xvar_data, xvar_list, controls=[], intercept=True, HAC=False, maxlags=None):
+def oos_r2(y_true, y_pred, window, *, min_nobs):
+
+    from statsmodels.regression.rolling import RollingOLS
+
+
+
+
+def singl_ts(yvar_data, yvar_list, xvar_data, xvar_list, controls=[], *, intercept=True, HAC=False, maxlags=None):
 
     from statsmodels.api import OLS, add_constant
 
@@ -66,15 +73,15 @@ def singl_ts(yvar_data, yvar_list, xvar_data, xvar_list, controls=[], intercept=
             param = reg.params[col]
             stars = ''.join(['*' for i in [0.01, 0.05, 0.1] if pval<=i])
             s.loc[yvar,col] = f'{param:.4f}' + stars
-            s.loc[f'{yvar}_t', col] = f'({tval:.2f})'
+            s.loc[f'{yvar}_t', col] = f'({tval:.2f})' # 在excel会直接变为负数，需先将单元格设置为文本
 
-        s.loc[yvar,'adj-r2'] = reg.rsquared_adj
+        s.loc[yvar,'adj-r2'] = '{:.4f}'.format(reg.rsquared_adj)
 
     s.index = sum([[i,''] for i in yvar_data[yvar_list]],[])
     return s.fillna('')
 
 
-def multi_ts(yvar_data, yvar_list, xvar_data, xvar_list, controls=[], intercept=True, HAC=False, maxlags=None):
+def multi_ts(yvar_data, yvar_list, xvar_data, xvar_list, controls=[], *, intercept=True, HAC=False, maxlags=None):
 
     assert isinstance(yvar_data, pd.DataFrame) and isinstance(xvar_data, pd.DataFrame), 'yvar_data and xvar_data shall be pd.DataFrame'
     assert all(yvar_data.index == xvar_data.index), 'yvar_data and xvar_data index not same'
