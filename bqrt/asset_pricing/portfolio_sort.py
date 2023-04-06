@@ -18,7 +18,7 @@ def port_vw_return(mv_raw, ret_raw):
     ----------
     mv_raw : pd.DataFrame
         market value dataframe, used to calcuate weight of each individual stock
-    ret_raw : _type_
+    ret_raw : pd.DataFrame
         return dataframe
 
     Returns
@@ -38,6 +38,7 @@ def port_vw_return(mv_raw, ret_raw):
     ttl_mv_by_row = mv_df.sum(axis='columns')
     # 计算权重 = 市值/总市值
     mv_df = mv_df.div(ttl_mv_by_row, axis='rows')
+
     return mv_df.mul(ret_df).sum(axis='columns')
 
 
@@ -67,6 +68,7 @@ def qcut_wrapper(data, bins_list, lables):
     except ValueError:
         print(data)
         result = [np.nan]*len(data)
+
     return result
 
 
