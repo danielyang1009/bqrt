@@ -35,13 +35,6 @@ def show_sig_only(s):
     return s
 
 
-def oos_r2(y_true, y_pred, window, *, min_nobs):
-
-    from statsmodels.regression.rolling import RollingOLS
-
-
-
-
 def singl_ts(yvar_data, yvar_list, xvar_data, xvar_list, controls=[], *, intercept=True, HAC=False, maxlags=None):
 
     from statsmodels.api import OLS, add_constant
