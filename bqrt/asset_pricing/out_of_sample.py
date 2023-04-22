@@ -5,10 +5,10 @@ Out-of-sample Predictability
 
 import numpy as np
 import pandas as pd
-from tqdm.notebook import trange, tqdm
+from tqdm.notebook import tqdm, trange
 
 
-def singl_pred(data, yvar, xvar_list, scheme, window, benchmark='mean'):
+def singl_pred(data, yvar, xvar_list, scheme, window, benchmark=None):
     """
     Prdiction using rolling/expanding window. Different schemes include 'mean' (historical mean with same window), 'zero', and custom input X predictors list (must be).
 
@@ -50,36 +50,40 @@ def singl_pred(data, yvar, xvar_list, scheme, window, benchmark='mean'):
         if scheme == 'rolling':
             start = end - (window - 1)
 
-#         需要注意s[start:end]不包含end行，s.loc[start:end]根据index，包含end行
-#         剔除window中的最后一条作为prediction
-#         print(start, end)
+        # 需要注意s[start:end]不包含end行，s.loc[start:end]根据index，包含end行
+        # 剔除window中的最后一条作为prediction
+        # print(start, end)
         X_train = s.loc[start:end, xvar_list]
         y_train = s.loc[start:end, yvar]
         reg_pred = sm.OLS(y_train, X_train, missing='drop').fit()
 
-#         预测回归
+        # 预测回归
         X_test = s.loc[end+1, xvar_list]
+        # 预测为超额收益
         y_pred = reg_pred.predict(X_test)
         s.loc[end+1, yvar+'_pred'] = y_pred[0]
 
-#         不同的benchmark
-        if benchmark == 'mean':
-            s.loc[end+1, yvar+'_bench'] = s.loc[start:end, yvar].mean()
+        # 可以选择不计算benchmark
+        if benchmark:
+            # 不同的benchmark
+            if benchmark == 'mean':
+                # 为历史收益（非超额）均值
+                s.loc[end+1, yvar+'_bench'] = s.loc[start:end, yvar].mean()
 
-        if benchmark == 'zero':
-            s.loc[end+1, yvar+'_bench'] = 0
+            if benchmark == 'zero':
+                s.loc[end+1, yvar+'_bench'] = 0
 
-        if isinstance(benchmark,list):
-            X_train_bm = s.loc[start:end, benchmark]
-            reg_bench = sm.OLS(y_train, X_train_bm, missing='drop').fit()
-            y_pred_bm = reg_bench.predict(X_test)
-            s.loc[end+1, yvar+'_bench'] = y_pred_bm[0]
+            if isinstance(benchmark,list):
+                X_train_bm = s.loc[start:end, benchmark]
+                reg_bench = sm.OLS(y_train, X_train_bm, missing='drop').fit()
+                y_pred_bm = reg_bench.predict(X_test)
+                s.loc[end+1, yvar+'_bench'] = y_pred_bm[0]
 
     s = s.set_index('date')
     return s.loc[:,s.columns.str.contains(yvar)]
 
 
-def multi_yvar_pred(data, yvar_list, xvar_list, scheme, window, benchmark='mean'):
+def multi_yvar_pred(data, yvar_list, xvar_list, scheme, window, benchmark=None):
 
     assert isinstance(yvar_list, list), 'yvar_list需要是list'
 
