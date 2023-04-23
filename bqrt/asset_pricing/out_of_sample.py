@@ -73,7 +73,7 @@ def singl_pred(data, yvar, xvar_list, scheme, window, benchmark=None):
             if benchmark == 'zero':
                 s.loc[end+1, yvar+'_bench'] = 0
 
-            if isinstance(benchmark,list):
+            if isinstance(benchmark, list):
                 X_train_bm = s.loc[start:end, benchmark]
                 reg_bench = sm.OLS(y_train, X_train_bm, missing='drop').fit()
                 y_pred_bm = reg_bench.predict(X_test)
@@ -85,17 +85,15 @@ def singl_pred(data, yvar, xvar_list, scheme, window, benchmark=None):
 
 def multi_yvar_pred(data, yvar_list, xvar_list, scheme, window, benchmark=None):
 
-    assert isinstance(yvar_list, list), 'yvar_list需要是list'
+    assert isinstance(yvar_list, str) or isinstance(yvar_list, list), 'yvar_list需要是str或list'
 
+    if isinstance(yvar_list, str):
+        yvar_list = [yvar_list]
 
-    if len(yvar_list) == 1:
-        s = singl_pred(data, yvar_list[0], xvar_list, scheme, window, benchmark)
-
-    if len(yvar_list) > 1:
-        s = pd.DataFrame()
-        for yvar in tqdm(yvar_list, desc='y variables loop'):
-            to_add = singl_pred(data, yvar, xvar_list, scheme, window, benchmark)
-            s = pd.concat([s,to_add], axis='columns')
+    s = pd.DataFrame()
+    for yvar in tqdm(yvar_list, desc='y variables loop'):
+        to_add = singl_pred(data, yvar, xvar_list, scheme, window, benchmark)
+        s = pd.concat([s,to_add], axis='columns')
 
     return s
 
