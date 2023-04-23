@@ -1,6 +1,8 @@
 """
 Portfolio Optimization
 --------------
+
+Portfolio optimization based on different utility function
 """
 
 import numpy as np
@@ -68,8 +70,8 @@ def two_asset_port_utility(w, ra, rf, sigma=None, gamma=2, utility_func='mean_va
         risky asset return
     rf : float
         risk-free asset return
-    sigma : risky asset standard deviation, optional
-        _description_, by default None
+    sigma : float, optional
+        risky asset standard deviation, by default None
     gamma : int, optional
         risk aversion coefficient, by default 2
     utility_func : string, optional
@@ -95,7 +97,26 @@ def two_asset_port_utility(w, ra, rf, sigma=None, gamma=2, utility_func='mean_va
     return -utility
 
 
-def mean_var_opt_weight(r, sigma, gamma, bounds=None):
+def mean_var_opt_weight(r, sigma, gamma=2, bounds=None):
+    """
+    Calcuated optimal weight base on mean-variance utility
+
+    Parameters
+    ----------
+    r : float
+        expected value of return
+    sigma : float
+        risky asset standard deviation, by default None
+    gamma : float
+        risk aversion coefficient, by defulat 2
+    bounds : tuple, optional
+        bounds of optimal weight, by default None
+
+    Returns
+    -------
+    w : float
+        optimal weight
+    """
 
     # mean_var的最优权重可以直接通过求导得到，不需要使用最优化
     if bounds:
@@ -109,74 +130,122 @@ def mean_var_opt_weight(r, sigma, gamma, bounds=None):
         return w
 
 
-def port_max(data, yvar, scheme, window, gamma, *, y_real_suffix=None, y_pred_suffix=None, bounds=None, freq_adj=None):
+def port_optimization(data, yvar_list, scheme, window, gamma, *, y_real_suffix=None, y_pred_suffix='_pred', risk_free='rf', bounds=None, freq_adj=1):
+    """
+    Calcuating optimized two-asset porfolio return, including one risky asset (single risky asset or every risky asset for multiple risky asset case) and one risk-free asset, based on mean-variance utility (`bq.mean_var_opt_weight`)
 
-    # y_pred应为预测收益 E(r_excess + r_f)
-    data.index.name = 'date'
-    s = data.copy().reset_index()
+    Parameters
+    ----------
+    data : pd.DataFrame
+        time-series dataframe contains single or multiple asset real return and predicted return
+    yvar_list : str or list
+        str or list of asssets(portfolios) name
+    scheme : str
+        choose between 'rolling' window or 'expanding' window
+    window : int
+        rolling window size of initial expanding window size
+    gamma : float
+        risk aversion coefficient
+    y_real_suffix : str, optional
+        suffix of column name of real asset return, by default None
+    y_pred_suffix : str, optional
+        suffix of column name of asset return prediction, by default '_pred'
+    risk_free : str, optional
+        column name of risk-free rate, by default 'rf'
+    bounds : tuple, optional
+        bounds of optimal weight, by default None
+    freq_adj : int, optional
+        adjustment of data frequency, daily(252), monthly(12), quarterly(3), yearly(1), by default 1
 
-    # 未指定，则默认为yvar
-    y_real = yvar if y_real_suffix == None else yvar + y_real_suffix
-    # 未指定，则默认为yvar+'_pred‘
-    y_pred = yvar + '_pred' if y_pred_suffix == None else yvar + y_pred_suffix
-
-    assert y_real in s.columns, f'{y_real}不在DataFrame中'
-    assert y_pred in s.columns, f'{y_pred}不在DataFrame中'
-
-    for end in trange(window-1, len(s)-1, leave=False):
-        if scheme == 'expanding':
-            start = 0
-        # index从0开始
-        if scheme == 'rolling':
-            start = end - (window - 1)
-
-        mu = s.loc[end+1, y_pred]
-        # mu_adj = mu * freq_adj # 乘252调整年化
-        mu_adj = (1+mu)**freq_adj-1 # 连续复利调整年化
-        # s.loc[end+1,'mu'] = mu_adj
-        sigma = s.loc[start:end, y_real].std()
-        sigma_adj = sigma * np.sqrt(freq_adj)
-        # s.loc[end+1,'sigma'] = sigma_adj
-
-        # 注意此时w均为预测值，为至t时刻数据得到
-        # 已对齐时间戳为t+1，可以直接与t+1收益相乘
-        opt_weight = mean_var_opt_weight(mu_adj, sigma_adj, gamma, bounds)
-        s.loc[end+1, yvar+'_w'] = opt_weight
-
-    s = s.set_index('date')
-    return s.loc[:,[y_real, y_pred, yvar+'_w']]
-
-
-# 根据yvar_list中的各个yvar的未来估计值yvar_pred计算最优化权重，而后通过实际收益yvar_real(yar)计算实际两资产投资组合收益(yvar_rp)
-def multi_port_max(data, yvar_list, scheme, window, gamma, *, y_real_suffix=None, y_pred_suffix=None, risk_free='rf', bounds=None, freq_adj=None):
+    Returns
+    -------
+    pm_tbl : pd.DataFrame
+        optimized portfolio return
+    """
 
     assert isinstance(yvar_list, str) or isinstance(yvar_list, list), 'yvar_list需要是str或list'
     if isinstance(yvar_list, str):
         yvar_list = [yvar_list]
     assert risk_free in data.columns, f'{risk_free}不在DataFrame中'
 
-    s = data[[risk_free]].copy()
+    # 计算投资组合收益需要无风险收益
+    pm_tbl = data[[risk_free]].copy()
+    data.index.name = 'date'
+    data = data.reset_index()
+
     for yvar in tqdm(yvar_list, desc='y variables loop'):
 
-        to_add = port_max(data, yvar, scheme, window, gamma, y_real_suffix=y_real_suffix, y_pred_suffix=y_pred_suffix, bounds=bounds, freq_adj=freq_adj)
-        s = pd.concat([s,to_add], axis='columns')
+        # 确保y_real和y_pred在DataFrame中
+        y_real = yvar if y_real_suffix == None else yvar + y_real_suffix
+        y_pred = yvar + '_pred' if y_pred_suffix == None else yvar + y_pred_suffix
+        assert y_real in data.columns, f'{y_real}不在DataFrame中'
+        assert y_pred in data.columns, f'{y_pred}不在DataFrame中'
 
-        # 计算投资组合收益
-        s[yvar+'_rp'] = s[yvar+'_w'] * s[yvar] + (1-s[yvar+'_w']) * s[risk_free]
+        # 滚动计算最优权重
+        s = data.loc[:, ['date', y_real, y_pred]]
+        for end in trange(window-1, len(s)-1, leave=False):
+            if scheme == 'expanding':
+                start = 0
+            # index从0开始
+            if scheme == 'rolling':
+                start = end - (window - 1)
 
-    return s
+            mu = s.loc[end+1, y_pred]
+            # mu_adj = mu * freq_adj # 乘252调整年化
+            mu_adj = (1+mu)**freq_adj-1 # 连续复利调整年化
+            # s.loc[end+1,'mu'] = mu_adj
+            sigma = s.loc[start:end, y_real].std()
+            sigma_adj = sigma * np.sqrt(freq_adj)
+            # s.loc[end+1,'sigma'] = sigma_adj
+
+            # 注意此时w均为预测值，为至t时刻数据得到
+            # 已对齐时间戳为t+1，可以直接与t+1收益相乘
+            opt_weight = mean_var_opt_weight(mu_adj, sigma_adj, gamma, bounds)
+            s.loc[end+1, yvar+'_w'] = opt_weight
+
+        # 保留yvar_real与yvar_pred列，添加计算后最优化的权重列（yvar_w）
+        to_add = s.set_index('date')
+        pm_tbl = pd.concat([pm_tbl, to_add], axis='columns')
+
+        # 得到yvar投资组合的最优化收益（yvar_rp）
+        pm_tbl[yvar+'_rp'] = pm_tbl[yvar+'_w'] * pm_tbl[yvar] + (1-pm_tbl[yvar+'_w']) * pm_tbl[risk_free]
+
+    return pm_tbl
 
 
-def mean_var_cer(data, yvar_list, gamma, freq_adj=None):
+def mean_var_cer(data, yvar_list, y_port_suffix='_rp', gamma=2, freq_adj=1):
+    """
+    Calculate certainty equivalent return (CER) base of mean-variance utility for every asset(portfolio) in `yvar_list`
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        time-series dataframe of single of multiple portfolio return
+    yvar_list : str or list
+        str or list of asssets(portfolios) name
+    y_port_suffix : str
+        suffix of portfolio name
+    gamma : float
+        risk aversion coefficient
+    freq_adj : int, optional
+        same as `bq.port_max`
+
+    Returns
+    -------
+    pd.DataFrame
+        result of every portfolios' CER
+    """
 
     if isinstance(yvar_list, str):
         yvar_list = [yvar_list]
 
     s = pd.DataFrame(index=yvar_list)
     for yvar in yvar_list:
-        annu_mu = (1+data[yvar+'_rp'].mean())**freq_adj - 1 # 连续复利年化
+
+        y_port = yvar + y_port_suffix
+        annu_mu = (1+data[y_port].mean())**freq_adj - 1 # 连续复利年化
         # annu_mu = data[yvar+'_rp'].mean()**freq_adj # 乘252年化
-        annu_sigma = data[yvar+'_rp'].std() * np.sqrt(freq_adj)
+        annu_sigma = data[y_port].std() * np.sqrt(freq_adj)
 
         s.loc[yvar, 'cer'] = mean_var_utility(annu_mu, annu_sigma, gamma)
 

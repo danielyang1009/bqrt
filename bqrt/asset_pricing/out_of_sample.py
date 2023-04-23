@@ -98,57 +98,72 @@ def multi_yvar_pred(data, yvar_list, xvar_list, scheme, window, benchmark=None):
     return s
 
 
-def oos_r2(s, y, y_pred, y_bench):
+def oos_r2(data, yvar_list, y_real_suffix=None, y_pred_suffix='_pred', y_bench_suffix='_bench'):
 
-    # na不会影响计算
-    s = s[[y, y_pred, y_bench]].dropna()
+    assert isinstance(yvar_list, str) or isinstance(yvar_list, list), 'yvar_list需要是str或list'
+    if isinstance(yvar_list, str):
+        yvar_list = [yvar_list]
 
-    ss_pred = np.sum((s[y] - s[y_pred])**2)
-    ss_bench = np.sum((s[y] - s[y_bench])**2)
-    # print(ss_pred, ss_bench)
-
-    oos_r2 = 1 - ss_pred / ss_bench
-    # critifal value
-    # oos_f = len(df) * ss_bench / ss_pred * oos_r2
-
-    return oos_r2
-
-
-def multi_oos_r2(s, yvar_list):
-
-    assert isinstance(yvar_list, list), 'yvar_list需要是list'
-
-    r2_table = pd.DataFrame(index=yvar_list, columns=['r2'])
+    r2_table = pd.DataFrame(index=yvar_list, columns=['oos_r2'])
     r2_table.index.name = 'port'
     for yvar in yvar_list:
-        r2_table.loc[yvar,'r2'] =oos_r2(s, yvar, yvar+'_pred', yvar+'_bench')
+
+        y_real = yvar if y_real_suffix == None else yvar + y_real_suffix
+        y_pred = yvar + y_pred_suffix
+        y_bench = yvar + y_bench_suffix
+
+        assert y_real in data.columns, f'{y_real}不在DataFrame中'
+        assert y_pred in data.columns, f'{y_pred}不在DataFrame中'
+        assert y_bench in data.columns, f'{y_bench}不在DataFrame中'
+
+        s = data[[y_real, y_pred, y_bench]].dropna().copy()
+        ss_pred = np.sum((s[y_real] - s[y_pred])**2)
+        ss_bench = np.sum((s[y_real] - s[y_bench])**2)
+
+        r2_table.loc[yvar,'oos_r2'] = 1 - ss_pred / ss_bench
 
     return r2_table
 
 
-# 根据CW2007以及Bakshi.et.at2010
-def mspef(s, yvar_list):
+# 根据CW2007以及Bakshi.et.at2010，MSPE-adjusted statistic
+def cw_stat(s, yvar_list, *, y_real_suffix=None, y_pred_suffix='_pred', y_bench_suffix='_bench'):
+
+    assert isinstance(yvar_list, str) or isinstance(yvar_list, list), 'yvar_list需要是str或list'
+    if isinstance(yvar_list, str):
+        yvar_list = [yvar_list]
 
     # 由sing_pred或mult_pred结果进行计算
     s = s.dropna()
-    # 每一列为yvar的计算后f值的时间序列
-    f_tbl = pd.DataFrame()
-    f_tbl.index.name = 'port'
+    # 每一列为yvar的计算后统计值值的时间序列
+    cw_tbl = pd.DataFrame()
+    cw_tbl.index.name = 'port'
     for yvar in yvar_list:
-        # 为列
-        f_to_add = (s[yvar]- s[yvar+'_bench'])**2 - (s[yvar]- s[yvar+'_pred'])**2 + (s[yvar+'_bench'] - s[yvar+'_pred'])**2
-        f_to_add.name = yvar
-        f_tbl = pd.concat([f_tbl, f_to_add], axis='columns')
-    return f_tbl
+
+        y_real = yvar if y_real_suffix == None else yvar + y_real_suffix
+        y_pred = yvar + y_pred_suffix
+        y_bench = yvar + y_bench_suffix
+
+        # calculating MSPE statistic
+        to_add = (s[y_real]- s[y_bench])**2 - (s[y_real]- s[y_pred])**2 + (s[y_bench] - s[y_pred])**2
+        to_add.name = yvar
+        cw_tbl = pd.concat([cw_tbl, to_add], axis='columns')
+    return cw_tbl
 
 
-def mspe_t(f_tbl):
+def cw_t(f_tbl):
+    """
+    Calcuate Clark & West (2007) t statistic, based on `cw_stat` result
+
+    Parameters
+    ----------
+    f_tbl : pd.DataFrame
+        DataFrame with DatetimeIndex (time-series) and assets' CW statistic in columns
+    """
     import statsmodels.formula.api as smf
 
-    # 根据f的时间序列计算对应的t值
+    # 根据cw_stat的时间序列计算对应的t值
     # 根据bakshi，应该考虑单边p值？即将双边的P值除2即可？
     for yvar in f_tbl.columns:
-        reg = smf.ols('{} ~ 1'.format(yvar), data=f_tbl).fit()
         reg = smf.ols('{} ~ 1'.format(yvar), data=f_tbl).fit()
         f_tbl.loc[yvar,'tval'] = reg.tvalues[0]
         f_tbl.loc[yvar,'pval'] = reg.pvalues[0]
