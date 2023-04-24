@@ -10,7 +10,9 @@ def pred_reg(data, yvar_list, xvar_list, scheme, window, *, benchmark=None, inte
     """
     Prdictive regression using rolling/expanding window. Different schemes include 'mean' (historical mean with same window), 'zero', and custom input X predictors list (must be).
 
-    !!! `data` DataFrame must be organized with lead-lag format beforehand, e.g. with some date t, y(t) and x(t-1) in same row. !!!
+    Important
+    ---------
+    `data` DataFrame must be organized with lead-lag format beforehand, e.g. with some date t+1, input data y(t+1) and x(t) in same row. Prediction result of t+1 based on initial data from 0 to t (rolling or expanding).
 
     Parameters
     ----------
@@ -59,16 +61,13 @@ def pred_reg(data, yvar_list, xvar_list, scheme, window, *, benchmark=None, inte
         if intercept:
             s = add_constant(s)
 
+        # 需要注意s[start:end]不包含end行，s.loc[start:end]根据index，包含end行
         for end in trange(window-1, len(s)-1, leave=False):
             if scheme == 'expanding':
                 start = 0
             # index从0开始
             if scheme == 'rolling':
                 start = end - (window - 1)
-
-            # 需要注意s[start:end]不包含end行，s.loc[start:end]根据index，包含end行
-            # 剔除window中的最后一条作为prediction
-            # print(start, end)
 
             y_train = s.loc[start:end, yvar]
             if intercept:
@@ -95,13 +94,16 @@ def pred_reg(data, yvar_list, xvar_list, scheme, window, *, benchmark=None, inte
                     s.loc[end+1, yvar+'_bench'] = 0
 
                 if isinstance(benchmark, list):
-
-                    X_train_bm = s.loc[start:end, benchmark]
                     if intercept:
-                        X_train_bm = add_constant(X_train_bm)
+                        X_train_bm = s.loc[start:end, ['const']+benchmark]
+                        X_test_bm = s.loc[end+1, ['const']+benchmark]
+                    else:
+
+                        X_train_bm = s.loc[start:end, benchmark]
+                        X_test_bm = s.loc[end+1, benchmark]
 
                     reg_bench = OLS(y_train, X_train_bm, missing='drop').fit()
-                    y_pred_bm = reg_bench.predict(X_test)
+                    y_pred_bm = reg_bench.predict(X_test_bm)
                     s.loc[end+1, yvar+'_bench'] = y_pred_bm[0]
 
         s = s.set_index('date')
