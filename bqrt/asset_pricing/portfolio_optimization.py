@@ -208,7 +208,10 @@ def port_optimization(data, yvar_list, scheme, window, gamma, *, y_real_suffix=N
         pm_tbl = pd.concat([pm_tbl, to_add], axis='columns')
 
         # 得到yvar投资组合的最优化收益（yvar_rp）
-        pm_tbl[yvar+'_rp'] = pm_tbl[yvar+'_w'] * pm_tbl[yvar] + (1-pm_tbl[yvar+'_w']) * pm_tbl[risk_free]
+        # 直接使用赋值报错`DataFrame is highly fragmented`
+        port_ret = pm_tbl[yvar+'_w'] * pm_tbl[yvar] + (1-pm_tbl[yvar+'_w']) * pm_tbl[risk_free]
+        port_ret.name = yvar+'_rp'
+        pm_tbl = pd.concat([pm_tbl, port_ret], axis='columns')
 
     return pm_tbl
 
@@ -239,7 +242,7 @@ def mean_var_cer(data, yvar_list, *, y_port_suffix='_rp', gamma=2, freq_adj=1):
     if isinstance(yvar_list, str):
         yvar_list = [yvar_list]
 
-    s = pd.DataFrame(index=yvar_list)
+    s = pd.DataFrame(index=yvar_list, dtype='float')
     for yvar in yvar_list:
 
         y_port = yvar + y_port_suffix
