@@ -2,31 +2,10 @@
 from .date import *
 from .stats import *
 from .plot import *
+from .sig_check import *
 
 import pandas as pd
 # import numpy as np
-
-def check_ptable(ptable, *, threshold=None, star=False, columns=None):
-    # 给都是p值的单表打星
-
-    assert isinstance(ptable, pd.DataFrame), '应为DataFrame'
-    assert isinstance(columns,str) or isinstance(columns,list), 'columns 必须为str或list'
-    if isinstance(columns, str):
-        columns = [columns]
-    # 如果未指定columns检查所有columns为float，指定则只检查指定列
-    if columns == None:
-        columns = ptable.columns
-    assert all(ptable[columns].dtypes == float), '所有的列应为float'
-
-    res = ptable[columns].round(2)
-    # 若定义了阈值，则不显示高于阈值
-    if threshold != None:
-        res = res[res <= threshold]
-    # 打星
-    if star == True:
-        res = res.applymap(lambda x: str(x)+''.join(['*' for t in [.01, .05, .1] if x<=t]))
-
-    return res.astype(str).replace({'nan':''})
 
 
 def popview(df):
