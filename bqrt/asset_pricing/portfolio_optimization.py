@@ -130,7 +130,7 @@ def mean_var_opt_weight(r, sigma, gamma=2, bounds=None):
         return w
 
 
-def port_optimization(data, yvar_list, scheme, window, gamma, *, y_real_suffix=None, y_pred_suffix='_pred', risk_free='rf', bounds=None, freq_adj=1):
+def port_optimization(data, yvar_list, scheme, window, *, gamma=3, y_real_suffix=None, y_pred_suffix='_pred', risk_free='rf', bounds=None, freq_adj=1):
     """
     Calcuating optimized two-asset porfolio return, including one risky asset (single risky asset or every risky asset for multiple risky asset case) and one risk-free asset, based on mean-variance utility (`bq.mean_var_opt_weight`)
 

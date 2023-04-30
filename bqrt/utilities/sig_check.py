@@ -1,7 +1,7 @@
 import pandas as pd
+import numpy as np
 
-
-def check_ptable(data, *, threshold=None, star=False, columns=None, count=False):
+def check_ptable(data, *, threshold=None, star=False, columns=None, count=False, digi=None):
     """
     Check p-value table
 
@@ -12,12 +12,13 @@ def check_ptable(data, *, threshold=None, star=False, columns=None, count=False)
     threshold : float, optional
         show only p-values below threshold, by default None
     star : bool, optional
-        _description_, by default False
-    columns : _type_, optional
+        add stars to final result, by default False
+    columns : list, optional
         _description_, by default None
     count : float, optional
-        count total pvalues < count, by default None
-
+        count total significant level, by default False
+    digi : int, optional
+        round to decimal
     Returns
     -------
     ptable : pd.DataFrame
@@ -34,22 +35,35 @@ def check_ptable(data, *, threshold=None, star=False, columns=None, count=False)
         columns = data.columns
     assert all(data[columns].dtypes == float), '所有的列应为float'
 
-    sig_level = [.01, .05, .1]
-
+    # float p值部分
+    ptable = data[columns]
     # 是否统计显著数目
     if count:
-        for sig, stars in zip(sig_level[::-1], ['*','**','***']):
-            ttl_count = data.count().sum()
-            sig_count = data[data<=sig].count().sum()
+        ttl_count = ptable.count().sum()
+        for lower, upper, stars in zip([0,0.01,0.05],[0.01,0.05,0.1],['***','**','*']):
+            # print(lower,upper,stars)
+            sig_count = ptable[(ptable>lower) & (ptable<=upper)].count().sum()
             print('{:>3}: {}/{}'.format(stars, sig_count, ttl_count))
 
-    ptable = data[columns].round(2)
     # 是否仅显示小于threshold
     if threshold != None:
         ptable = ptable[ptable <= threshold]
 
-    # 是否打星
-    if star == True:
-        ptable = ptable.applymap(lambda x: str(x)+''.join(['*' for t in sig_level if x<=t]))
+    # 是否打星，将结果转换为str
+    # 注意问题：如0.103在数字只有**，但一旦round(2)之后变为0.1那么就可能是***
+    # 不能先round 再打星
+    if star == True and digi == None:
+        ptable = ptable.applymap(lambda x: str(x)+''.join(['*' for t in [.01, .05, .1] if x<=t]))
 
-    return ptable.astype(str).replace({'nan':''})
+    if star == True and digi != None:
+        ptable = ptable.applymap(lambda x: str(np.round(x,digi))+''.join(['*' for t in [.01, .05, .1] if x<=t]))
+
+    if digi != None:
+        ptable = ptable.round(digi)
+
+    # 剔除nan，保持原格式输出
+    ptable = ptable.astype(str).replace({'nan':''})
+    result = data.copy()
+    for col in columns:
+        result[col] = ptable[col]
+    return result
