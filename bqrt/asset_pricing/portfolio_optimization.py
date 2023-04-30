@@ -216,7 +216,7 @@ def port_optimization(data, yvar_list, scheme, window, gamma, *, y_real_suffix=N
     return pm_tbl
 
 
-def mean_var_cer(data, yvar_list, *, y_port_suffix='_rp', gamma=2, freq_adj=1):
+def mean_var_cer(data, yvar_list, *, y_port_suffix='_rp', gamma=3, freq_adj=1):
     """
     Calculate certainty equivalent return (CER) base of mean-variance utility for every asset(portfolio) in `yvar_list`
 

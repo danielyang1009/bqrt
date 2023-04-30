@@ -166,9 +166,9 @@ def cw_stat(s, yvar_list, *, y_real_suffix=None, y_pred_suffix='_pred', y_bench_
     return cw_tbl
 
 
-def cw_table(cw_tbl):
+def cw_table(cw_tbl, one_side=True):
     """
-    Calcuate Clark & West (2007) t statistic, based on `cw_stat` result
+    Calcuate Clark & West (2007) t statistic, based on `cw_stat` result. Based on Bakshi.etal (2010), Rapach.etal (2016) etc, performs one-side t test by default.
 
     Parameters
     ----------
@@ -189,7 +189,10 @@ def cw_table(cw_tbl):
         # print(reg.tvalues[0])
         # print(type(reg.tvalues[0]))
         cw_sig.loc[yvar,'tval'] = reg.tvalues[0]
-        cw_sig.loc[yvar,'pval'] = reg.pvalues[0]
+        if one_side == True:
+            cw_sig.loc[yvar,'pval'] = reg.pvalues[0] / 2
+        else:
+            cw_sig.loc[yvar,'pval'] = reg.pvalues[0]
 
     return cw_sig
 
