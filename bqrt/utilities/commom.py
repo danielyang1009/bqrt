@@ -1,5 +1,66 @@
+"""
+Common
+------
+
+Common utility tools
+"""
+
 import pandas as pd
 import numpy as np
+
+
+def describe(df:pd.DataFrame, *, params_digi:int=4, tstat_digi:int=2):
+    """
+    Create pandas describe like dataframe, contains skewness and kurtosis, t-statistics and p-value. Only select columns with float dtype.
+
+    Notice: Need to have `dropna` first.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame object to be described, exclude columns not to be described
+    digits : int
+        number of digits to show
+
+    Returns
+    -------
+    result : pd.DataFrame
+        DataFrame stats
+    """
+    import scipy.stats as stats
+
+    result_list = []
+    params_format = '{{:.{}f}}'.format(params_digi)
+    tstat_format = '{{:.{}f}}'.format(tstat_digi)
+
+    # only include `float` dtype
+    df = df.select_dtypes(include='float')
+
+    for col in df.columns.to_list():
+        des = stats.describe(df[col], nan_policy='omit')
+        ttest = stats.ttest_1samp(df[col],0,nan_policy='omit')
+        parts = {
+            'Count': '{}'.format(int(des.nobs)),
+            'Mean': params_format.format(des.mean),
+            'SD': params_format.format(np.sqrt(des.variance)),
+            # 'var': params_format.format(des.variance),
+            'Min': params_format.format(des.minmax[0]),
+            '5%': params_format.format(df[col].quantile(0.05)),
+            '25%': params_format.format(df[col].quantile(0.25)),
+            '50%': params_format.format(df[col].quantile(0.50)),
+            '75%': params_format.format(df[col].quantile(0.75)),
+            '95%': params_format.format(df[col].quantile(0.95)),
+            'Max': params_format.format(des.minmax[1]),
+            'Skew': params_format.format(des.skewness),
+            'Kurt': params_format.format(des.kurtosis),
+            'T-stat': tstat_format.format(ttest[0]),
+            'P-val': tstat_format.format(ttest[1])
+        }
+        result_list.append(parts)
+        result = pd.DataFrame(result_list).T
+    result.columns = df.columns
+    return result.T
+
 
 def check_ptable(data, *, threshold=None, star=False, columns=None, count=False, digi=None):
     """
@@ -14,15 +75,15 @@ def check_ptable(data, *, threshold=None, star=False, columns=None, count=False,
     star : bool, optional
         add stars to final result, by default False
     columns : list, optional
-        _description_, by default None
+        choose columns with p-value, by default None
     count : float, optional
         count total significant level, by default False
     digi : int, optional
         round to decimal
     Returns
     -------
-    ptable : pd.DataFrame
-        return result, if none of the optional arguement is set, then return original ptable with 2 decimal
+    result : pd.DataFrame
+        return result of original table format, with `columns` modified, and output format is string
     """
 
     assert isinstance(data, pd.DataFrame), '应为DataFrame'
@@ -67,3 +128,8 @@ def check_ptable(data, *, threshold=None, star=False, columns=None, count=False,
     for col in columns:
         result[col] = ptable[col]
     return result
+
+
+def cumprod_plot(df:pd.DataFrame, figsize=(8,4)):
+
+    (df+1).cumprod().plot(figsize=figsize)

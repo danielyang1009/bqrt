@@ -1,8 +1,7 @@
-#!/usr/bin/env python
-from .date import *
-from .stats import *
-from .plot import *
-from .sig_check import *
+from .commom import *
+# from .date import *
+# from .stats import *
+# from .testing import *
 
 import pandas as pd
 # import numpy as np
@@ -45,30 +44,6 @@ def set_notebook(max_rows:int=200, max_columns:int=50, float_digi=4):
 
     float_format = '{{:.{}f}}'.format(float_digi)
     pd.set_option('display.float_format', lambda x: float_format.format(x))
-
-
-def slope_intercept(x1, y1, x2, y2):
-    """ Testing liear inpterpolation
-
-    Parameters
-    ----------
-    x1 : float
-        x1
-    y1 : float
-        y1
-    x2 : float
-        x2
-    y2 : float
-        y2
-
-    Returns
-    -------
-    float
-        return linear interpolation slope and intercept
-    """
-    slope = (y2 - y1) / (x2 - x1)
-    intercept = (x1 * y2 - x2 * y1) / (x1 - x2)
-    return slope, intercept
 
 
 def jupyter_memory():

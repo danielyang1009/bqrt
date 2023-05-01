@@ -13,59 +13,6 @@ from scipy.special import erf
 # https://docs.scipy.org/doc/scipy/reference/reference/generated/scipy.stats.lognorm.html
 
 
-def describe(df:pd.DataFrame, params_digi:int=4, tstat_digi:int=2):
-    """
-    Create pandas describe like dataframe, contains skewness and kurtosis, t-statistics and p-value
-
-    Need to have `dropna` first.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        DataFrame object to be described, exclude columns not to be described
-    digits : int
-        number of digits to show
-
-    Returns
-    -------
-    result : pd.DataFrame
-        DataFrame stats
-    """
-    import scipy.stats as stats
-
-    result_list = []
-    params_format = '{{:.{}f}}'.format(params_digi)
-    tstat_format = '{{:.{}f}}'.format(tstat_digi)
-
-    # only include `float` dtype
-    df = df.select_dtypes(include='float')
-
-    for col in df.columns.to_list():
-        des = stats.describe(df[col], nan_policy='omit')
-        ttest = stats.ttest_1samp(df[col],0,nan_policy='omit')
-        parts = {
-            'Count': '{}'.format(int(des.nobs)),
-            'Mean': params_format.format(des.mean),
-            'SD': params_format.format(sqrt(des.variance)),
-            # 'var': params_format.format(des.variance),
-            'Min': params_format.format(des.minmax[0]),
-            '5%': params_format.format(df[col].quantile(0.05)),
-            '25%': params_format.format(df[col].quantile(0.25)),
-            '50%': params_format.format(df[col].quantile(0.50)),
-            '75%': params_format.format(df[col].quantile(0.75)),
-            '95%': params_format.format(df[col].quantile(0.95)),
-            'Max': params_format.format(des.minmax[1]),
-            'Skew': params_format.format(des.skewness),
-            'Kurt': params_format.format(des.kurtosis),
-            'T-stat': tstat_format.format(ttest[0]),
-            'P-val': tstat_format.format(ttest[1])
-        }
-        result_list.append(parts)
-        result = pd.DataFrame(result_list).T
-    result.columns = df.columns
-    return result.T
-
-
 def norm_pdf(x,mu,sigma):
     """Normal distribution PDF
 
