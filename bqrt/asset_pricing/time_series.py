@@ -8,6 +8,43 @@ import numpy as np
 import pandas as pd
 
 
+# 其中包含''空的行
+def show_ts_stat(df:pd.DataFrame, digi=4):
+
+    result = pd.DataFrame(index=['***','**','*','not_sig','total','avg','ttl_avg'], columns=df.columns, dtype=str)
+
+    for col in df.columns:
+        three_star = (df[col].apply(lambda x: x[-3:] == '***')).sum().sum()
+        two_star_and_above = (df[col].apply(lambda x: x[-2:] == '**')).sum().sum()
+        one_star_and_above = (df[col].apply(lambda x: x[-1:] == '*')).sum().sum()
+
+        two_star = two_star_and_above - three_star
+        one_star = one_star_and_above - two_star_and_above
+
+        result.loc['***',col] = three_star
+        result.loc['**', col] = two_star
+        result.loc['*', col] = one_star
+        result.loc['total',col] = df[col].replace('',np.nan).count()
+        result.loc['not_sig',col] = result.loc['total',col] - one_star_and_above
+
+    result['total'] = result.sum(axis='columns').astype(int).astype(str)
+
+    float_df = strip_stars(df)
+    mean = float_df.mean().round(digi).astype(str)
+    result.loc['avg'] = mean
+    result.loc[['avg','ttl_avg'],'total'] = ''
+    result.loc['ttl_avg',result.columns[0]] = '{:.4f}'.format(round(float_df.stack().mean(),digi))
+
+    return result.fillna('')
+
+
+# 去除结果中的星，并转化为float格式
+def strip_stars(df:pd.DataFrame):
+
+    return df.applymap(lambda x: x.strip('*')).replace('',np.nan).astype('float')
+
+
+# 可移除，功能放在common中的count star
 def count_sig_col(data, var):
 
     assert isinstance(data, pd.DataFrame), 'data shall be pd.DataFrame'
@@ -16,12 +53,14 @@ def count_sig_col(data, var):
 
 
 # 输入为singl_xvar_ts与multi_xvar_ts的结果（包含打星的系数和t值）
+# 显示所有系数与显著程度，不显示第二行t值
 def show_coe_only(s):
 
     return s.loc[s.index!='']
 
 
 # 输入为singl_xvar_ts与multi_xvar_ts的结果（包含打星的系数和t值）
+# 只显示显著的系数与显著程度，不显示第二行t值
 def show_sig_only(s):
 
     if 'adj-r2' in s.columns:
@@ -74,7 +113,9 @@ def singl_ts(yvar_data, yvar_list, xvar_data, xvar_list, controls=[], *, interce
     return s.fillna('')
 
 
-def multi_ts(yvar_data, yvar_list, xvar_data, xvar_list, controls=[], *, intercept=True, HAC=False, maxlags=None):
+# 当xvar_list只有单变量时，即为单xvar检验，报告详细表所有系数，4位小数系数，并标记显著程度（打星），与adj-r方，下一行为括弧内（t值）
+# 当xvar_list有多变量时，即为多xvar检验，仅报告xvar_list内变量，系数，4位小数，标注显著程度(打星)，下一行为括号内（t值）
+def ts_reg(yvar_data, yvar_list, xvar_data, xvar_list, controls=[], *, intercept=True, HAC=False, maxlags=None):
 
     assert isinstance(yvar_data, pd.DataFrame) and isinstance(xvar_data, pd.DataFrame), 'yvar_data and xvar_data shall be pd.DataFrame'
     assert all(yvar_data.index == xvar_data.index), 'yvar_data and xvar_data index not same'
@@ -103,8 +144,3 @@ def multi_ts(yvar_data, yvar_list, xvar_data, xvar_list, controls=[], *, interce
 
     s.index = sum([[i,''] for i in yvar_data[yvar_list]],[])
     return s
-
-
-# 所有ts回归结果取均值
-def standard_st():
-    pass
