@@ -130,6 +130,16 @@ def check_ptable(data, *, threshold=None, star=False, columns=None, count=False,
     return result
 
 
-def cumprod_plot(df:pd.DataFrame, figsize=(8,4)):
+def cp_plot(df:pd.DataFrame, figsize=(8,4)):
+    """
+    Plot cumprod
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        _description_
+    figsize : tuple, optional
+        _description_, by default (8,4)
+    """
 
     (df+1).cumprod().plot(figsize=figsize)

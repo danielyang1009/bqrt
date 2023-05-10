@@ -74,7 +74,7 @@ def show_sig_only(s):
     return s
 
 
-def singl_ts(yvar_data, yvar_list, xvar_data, xvar_list, controls=[], *, intercept=True, HAC=False, maxlags=None):
+def singl_ts(yvar_data, yvar_list, xvar_data, xvar_list, controls=[], *, intercept=True, HAC=False, maxlags=None, digi=4, r2_pct=False):
 
     from statsmodels.api import OLS, add_constant
 
@@ -104,10 +104,15 @@ def singl_ts(yvar_data, yvar_list, xvar_data, xvar_list, controls=[], *, interce
             tval, pval = reg.tvalues[col], reg.pvalues[col]
             param = reg.params[col]
             stars = ''.join(['*' for i in [0.01, 0.05, 0.1] if pval<=i])
-            s.loc[yvar,col] = f'{param:.4f}' + stars
+            s.loc[yvar,col] = '{:.{}f}'.format(param, digi) + stars
             s.loc[f'{yvar}_t', col] = f'({tval:.2f})' # 在excel会直接变为负数，需先将单元格设置为文本
 
-        s.loc[yvar,'adj-r2'] = '{:.4f}'.format(reg.rsquared_adj)
+        adj_r2 = reg.rsquared_adj
+        # 日频数据，放大r2易读
+        if r2_pct == True:
+            adj_r2 = adj_r2 * 100
+        s.loc[yvar,'adj-r2'] = '{:.{}f}'.format(adj_r2, digi)
+        # s.loc[yvar,'adj-r2'] = '{:.{}f}'.format(reg.rsquared_adj*100, digi)
 
     s.index = sum([[i,''] for i in yvar_data[yvar_list]],[])
     return s.fillna('')
@@ -115,7 +120,7 @@ def singl_ts(yvar_data, yvar_list, xvar_data, xvar_list, controls=[], *, interce
 
 # 当xvar_list只有单变量时，即为单xvar检验，报告详细表所有系数，4位小数系数，并标记显著程度（打星），与adj-r方，下一行为括弧内（t值）
 # 当xvar_list有多变量时，即为多xvar检验，仅报告xvar_list内变量，系数，4位小数，标注显著程度(打星)，下一行为括号内（t值）
-def ts_reg(yvar_data, yvar_list, xvar_data, xvar_list, controls=[], *, intercept=True, HAC=False, maxlags=None):
+def ts_reg(yvar_data, yvar_list, xvar_data, xvar_list, controls=[], *, intercept=True, HAC=False, maxlags=None, digi=4, r2_pct=False):
 
     assert isinstance(yvar_data, pd.DataFrame) and isinstance(xvar_data, pd.DataFrame), 'yvar_data and xvar_data shall be pd.DataFrame'
     assert all(yvar_data.index == xvar_data.index), 'yvar_data and xvar_data index not same'
@@ -133,12 +138,12 @@ def ts_reg(yvar_data, yvar_list, xvar_data, xvar_list, controls=[], *, intercept
         assert isinstance(maxlags,int), 'maxlags (int) is needed'
 
     if len(xvar_list) == 1:
-        s = singl_ts(yvar_data, yvar_list, xvar_data, xvar_list, controls=controls, intercept=intercept, HAC=HAC, maxlags=maxlags)
+        s = singl_ts(yvar_data, yvar_list, xvar_data, xvar_list, controls=controls, intercept=intercept, HAC=HAC, maxlags=maxlags, digi=digi, r2_pct=r2_pct)
 
     if len(xvar_list) > 1:
         s = []
         for xvar in xvar_list:
-            xvar_reg = singl_ts(yvar_data, yvar_list, xvar_data, [xvar], controls=controls, intercept=intercept, HAC=HAC, maxlags=maxlags)
+            xvar_reg = singl_ts(yvar_data, yvar_list, xvar_data, [xvar], controls=controls, intercept=intercept, HAC=HAC, maxlags=maxlags, digi=digi, r2_pct=r2_pct)
             s.append(xvar_reg[xvar].reset_index(drop=True))
         s = pd.DataFrame(s).T
 
