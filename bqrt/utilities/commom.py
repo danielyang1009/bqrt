@@ -117,7 +117,7 @@ def check_ptable(data, *, threshold=None, star=False, columns=None, count=False,
         ptable = ptable.applymap(lambda x: str(x)+''.join(['*' for t in [.01, .05, .1] if x<=t]))
 
     if star == True and digi != None:
-        ptable = ptable.applymap(lambda x: str(np.round(x,digi))+''.join(['*' for t in [.01, .05, .1] if x<=t]))
+        ptable = ptable.applymap(lambda x: '{:.{}f}'.format(x,digi) + ''.join(['*' for t in [.01, .05, .1] if x<=t]))
 
     if digi != None:
         ptable = ptable.round(digi)

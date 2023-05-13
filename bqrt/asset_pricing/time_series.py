@@ -104,15 +104,17 @@ def singl_ts(yvar_data, yvar_list, xvar_data, xvar_list, controls=[], *, interce
             tval, pval = reg.tvalues[col], reg.pvalues[col]
             param = reg.params[col]
             stars = ''.join(['*' for i in [0.01, 0.05, 0.1] if pval<=i])
+            # 【TODO】 考虑是否为stars加上padding
+            # 后续需要用strip()剔除空格，但由于字体原因空格与数字所占空间未必能对齐
+            # stars = stars.ljust(3,' ')
             s.loc[yvar,col] = '{:.{}f}'.format(param, digi) + stars
             s.loc[f'{yvar}_t', col] = f'({tval:.2f})' # 在excel会直接变为负数，需先将单元格设置为文本
 
         adj_r2 = reg.rsquared_adj
-        # 日频数据，放大r2易读
+        # 是否放大为百分比r2
         if r2_pct == True:
             adj_r2 = adj_r2 * 100
         s.loc[yvar,'adj-r2'] = '{:.{}f}'.format(adj_r2, digi)
-        # s.loc[yvar,'adj-r2'] = '{:.{}f}'.format(reg.rsquared_adj*100, digi)
 
     s.index = sum([[i,''] for i in yvar_data[yvar_list]],[])
     return s.fillna('')
