@@ -39,7 +39,10 @@ def port_vw_return(mv_raw, ret_raw):
     # 计算权重 = 市值/总市值
     mv_df = mv_df.div(ttl_mv_by_row, axis='rows')
 
-    return mv_df.mul(ret_df).sum(axis='columns')
+    result = mv_df.mul(ret_df)
+    # 若该行全部为NaN，那么求和将得到0.00，不能直接使用`df.sum(axis='columns')`
+    # 当这行有部分na，则照常累加；若全部都是na，代表数据缺失，则应返回na
+    return result.apply(lambda x: np.nan if x.isna().all() else x.sum(), axis='columns')
 
 
 def qcut_wrapper(data, bins_list, lables):

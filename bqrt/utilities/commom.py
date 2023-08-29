@@ -130,6 +130,46 @@ def check_ptable(data, *, threshold=None, star=False, columns=None, count=False,
     return result
 
 
+def cumulative_ret(df:pd.DataFrame, step_forward, shift_back=False):
+    # 计算累计收益
+    # 宽表，列为资产日月收益率，计算多期的累计收益
+
+    # 问题在于是否考虑当天作为累计收益的一部分（累计收益不考虑当天，与预测回归逻辑一致）
+    # 在预测回归中X为当天，Y为明天
+    # 那么对于累计收益，应该从明天开始计算，若3天累计收益
+    # 今天的X，对应明天后天大后天的Y，此时X对应shift(2)
+
+    # 计算多少天的累计收益，3天，则rolling(3)
+    # 若step_forward =1??? 就是预测回归？？？，原表不变
+    cum_ret = (df+1).rolling(step_forward).apply(np.prod)-1
+
+    if shift_back == True:
+        # shift_back之后，默认对其X日期（预测回归），X无需再进行调整，可直接回归
+        # 即若3天累计收益，Y计算t,t+1,t+2三天，数据最终位置为t+2
+        # shift_back 3天后，最终位置为t-1，直接与X进行回归（预测回归）
+        cum_ret = cum_ret.shift(-step_forward)
+    else:
+        # 不进行调整
+        # 若在预测模型中X已shift(1)
+        # 则Y.shift(-step_forward+1)进行预测回归
+        return cum_ret
+
+
+def split_star_table(df:pd.DataFrame, cols = []):
+
+    if cols == []:
+        old_cols = df.columns
+    new_cols = sum([[col, col+'_'] for col in old_cols])
+
+    result = pd.DataFrame(index= df.index, columns=new_cols)
+
+    for col in old_cols:
+        pass
+
+
+    return result
+
+
 def cp_plot(df:pd.DataFrame, figsize=(8,4)):
     """
     Plot cumprod

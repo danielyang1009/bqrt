@@ -11,7 +11,7 @@ import pandas as pd
 # 其中包含''空的行
 def show_ts_stat(df:pd.DataFrame, digi=4):
 
-    result = pd.DataFrame(index=['***','**','*','not_sig','total','avg','ttl_avg'], columns=df.columns, dtype=str)
+    result = pd.DataFrame(index=['***','**','*','sig','not_sig','total','avg','ttl_avg'], columns=df.columns, dtype=str)
 
     for col in df.columns:
         three_star = (df[col].apply(lambda x: x[-3:] == '***')).sum().sum()
@@ -25,6 +25,7 @@ def show_ts_stat(df:pd.DataFrame, digi=4):
         result.loc['**', col] = two_star
         result.loc['*', col] = one_star
         result.loc['total',col] = df[col].replace('',np.nan).count()
+        result.loc['sig',col] = one_star_and_above
         result.loc['not_sig',col] = result.loc['total',col] - one_star_and_above
 
     result['total'] = result.sum(axis='columns').astype(int).astype(str)

@@ -27,7 +27,7 @@ def pred_reg(data, yvar_list, xvar_list, scheme, window, *, benchmark=None, inte
     window : int
         size sample data used (training sample size) of rolling window or initial expanding window
     benchmark : str, optional
-        default is 'mean', or 'zero', or list of X variables for creating benchmark predicting model
+        choose between 'mean', or 'zero', or list of X variables for creating benchmark predicting model
     intercept : bool, optional
         whether including intercept in predictive regression, by default 'True'
 
@@ -44,6 +44,7 @@ def pred_reg(data, yvar_list, xvar_list, scheme, window, *, benchmark=None, inte
     assert window < len(data), '窗口大于数据样本量'
     assert scheme in ['expanding','rolling'], 'scheme只能选择expanding和rolling两种方式'
     assert benchmark in [None,'zero','mean'] or isinstance(benchmark, list), "benchmark只能选择'mean'，'zero'，或输入x变量列表"
+    # assert len(benchmark) > 0, "benchmark，X列表为空"
 
     from statsmodels.api import OLS, add_constant
     from tqdm.notebook import tqdm, trange
@@ -98,7 +99,6 @@ def pred_reg(data, yvar_list, xvar_list, scheme, window, *, benchmark=None, inte
                         X_train_bm = s.loc[start:end, ['const']+benchmark]
                         X_test_bm = s.loc[end+1, ['const']+benchmark]
                     else:
-
                         X_train_bm = s.loc[start:end, benchmark]
                         X_test_bm = s.loc[end+1, benchmark]
 
