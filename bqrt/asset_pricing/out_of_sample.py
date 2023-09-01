@@ -6,7 +6,7 @@ Out-of-sample Predictability
 import numpy as np
 import pandas as pd
 
-def pred_reg(data, yvar_list, xvar_list, scheme, window, *, benchmark=None, intercept=True):
+def pred_reg(data, yvar_list, xvar_list, scheme, window, *, benchmark=None, intercept=True, min_data_count=None):
     """
     Prdictive regression using rolling/expanding window. Different schemes include 'mean' (historical mean with same window), 'zero', and custom input X predictors list (must be).
 
@@ -30,6 +30,8 @@ def pred_reg(data, yvar_list, xvar_list, scheme, window, *, benchmark=None, inte
         choose between 'mean', or 'zero', or list of X variables for creating benchmark predicting model
     intercept : bool, optional
         whether including intercept in predictive regression, by default 'True'
+    min_data_count : int, optional
+        minimum number of data points that both y and X contains for regression, otherwise, will trigger 'zero-size array to reduction operation maximum which has no identity', e.g. y contains all NaNs at the beginning of data set (first rolling window), however, X contins all data points
 
     Returns
     -------
@@ -58,11 +60,13 @@ def pred_reg(data, yvar_list, xvar_list, scheme, window, *, benchmark=None, inte
     predition = pd.DataFrame(dtype='float')
     for yvar in tqdm(yvar_list, desc='y variables loop'):
 
+        # 使用数字而非日期对df进行切片
         s = data.loc[:,[yvar]+xvar_list].copy().reset_index()
         if intercept:
             s = add_constant(s)
 
         # 需要注意s[start:end]不包含end行，s.loc[start:end]根据index，包含end行
+        # 需注意，虽然整体样本可能可以进行，但滚动起来时，还需要判断滚动窗口内的样本量
         for end in trange(window-1, len(s)-1, leave=False):
             if scheme == 'expanding':
                 start = 0
@@ -78,33 +82,41 @@ def pred_reg(data, yvar_list, xvar_list, scheme, window, *, benchmark=None, inte
                 X_train = s.loc[start:end, xvar_list]
                 X_test = s.loc[end+1, xvar_list]
 
-            # 预测回归，领先滞后回归
-            reg_pred = OLS(y_train, X_train, missing='drop').fit()
-            # 当y输入为超额收益时，预测结果也为超额收益
-            y_pred = reg_pred.predict(X_test)
-            s.loc[end+1, yvar+'_pred'] = y_pred[0]
+            # y_train为单变量
+            y_train_quilified = y_train.notna().sum() > min_data_count
+            # X_train中为多变量
+            X_train_quilified = all(X_train.notna().sum() > min_data_count)
 
-            # 可以选择不计算benchmark
-            if benchmark is not None:
-                # 不同的benchmark
-                if benchmark == 'mean':
-                    # 为历史收益（非超额）均值
-                    s.loc[end+1, yvar+'_bench'] = s.loc[start:end, yvar].mean()
+            # 判断数据是否男足min_data_count所要求的数据数量，以进行回归
+            if y_train_quilified and X_train_quilified:
 
-                if benchmark == 'zero':
-                    s.loc[end+1, yvar+'_bench'] = 0
+                # 预测回归，领先滞后回归
+                reg_pred = OLS(y_train, X_train, missing='drop').fit()
+                # 当y输入为超额收益时，预测结果也为超额收益
+                y_pred = reg_pred.predict(X_test)
+                s.loc[end+1, yvar+'_pred'] = y_pred[0]
 
-                if isinstance(benchmark, list):
-                    if intercept:
-                        X_train_bm = s.loc[start:end, ['const']+benchmark]
-                        X_test_bm = s.loc[end+1, ['const']+benchmark]
-                    else:
-                        X_train_bm = s.loc[start:end, benchmark]
-                        X_test_bm = s.loc[end+1, benchmark]
+                # 可以选择不计算benchmark
+                if benchmark is not None:
+                    # 不同的benchmark
+                    if benchmark == 'mean':
+                        # 为历史收益（非超额）均值
+                        s.loc[end+1, yvar+'_bench'] = s.loc[start:end, yvar].mean()
 
-                    reg_bench = OLS(y_train, X_train_bm, missing='drop').fit()
-                    y_pred_bm = reg_bench.predict(X_test_bm)
-                    s.loc[end+1, yvar+'_bench'] = y_pred_bm[0]
+                    if benchmark == 'zero':
+                        s.loc[end+1, yvar+'_bench'] = 0
+
+                    if isinstance(benchmark, list):
+                        if intercept:
+                            X_train_bm = s.loc[start:end, ['const']+benchmark]
+                            X_test_bm = s.loc[end+1, ['const']+benchmark]
+                        else:
+                            X_train_bm = s.loc[start:end, benchmark]
+                            X_test_bm = s.loc[end+1, benchmark]
+
+                        reg_bench = OLS(y_train, X_train_bm, missing='drop').fit()
+                        y_pred_bm = reg_bench.predict(X_test_bm)
+                        s.loc[end+1, yvar+'_bench'] = y_pred_bm[0]
 
         s = s.set_index('date')
         to_add = s.loc[:,s.columns.str.contains(yvar)]
@@ -148,7 +160,8 @@ def cw_stat(s, yvar_list, *, y_real_suffix=None, y_pred_suffix='_pred', y_bench_
         yvar_list = [yvar_list]
 
     # 由sing_pred或mult_pred结果进行计算
-    s = s.dropna()
+    # 直接dropna，由于有的没有数据，因此会将大量数据删除，需要单独计算！！！
+    # s = s.dropna()
     # 每一列为yvar的计算后统计值值的时间序列
     cw_tbl = pd.DataFrame(dtype='float')
     cw_tbl.index.name = 'port'
@@ -159,7 +172,7 @@ def cw_stat(s, yvar_list, *, y_real_suffix=None, y_pred_suffix='_pred', y_bench_
         y_bench = yvar + y_bench_suffix
 
         # calculating MSPE statistic
-        to_add = (s[y_real]- s[y_bench])**2 - (s[y_real]- s[y_pred])**2 + (s[y_bench] - s[y_pred])**2
+        to_add = (s[y_real]- s[y_bench])**2 - (s[y_real] - s[y_pred])**2 + (s[y_bench] - s[y_pred])**2
         to_add.name = yvar
         cw_tbl = pd.concat([cw_tbl, to_add], axis='columns')
 
