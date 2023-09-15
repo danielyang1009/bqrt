@@ -160,7 +160,8 @@ def cw_stat(s, yvar_list, *, y_real_suffix=None, y_pred_suffix='_pred', y_bench_
         yvar_list = [yvar_list]
 
     # 由sing_pred或mult_pred结果进行计算
-    # 直接dropna，由于有的没有数据，因此会将大量数据删除，需要单独计算！！！
+    # 直接dropna，由于有的列数据较少，因此会将大量数据删除
+    # 只要不是整列都是全为NaN应该能计算出数值
     # s = s.dropna()
     # 每一列为yvar的计算后统计值值的时间序列
     cw_tbl = pd.DataFrame(dtype='float')
