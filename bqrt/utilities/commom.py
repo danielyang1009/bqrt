@@ -13,7 +13,7 @@ def describe(df:pd.DataFrame, *, params_digi:int=4, tstat_digi:int=2):
     """
     Create pandas describe like dataframe, contains skewness and kurtosis, t-statistics and p-value. Only select columns with float dtype.
 
-    Notice: Need to have `dropna` first.
+    Only describe columns with float dtype. If a column contains all NaNs, then result is NaNs.
 
     Parameters
     ----------
@@ -36,30 +36,43 @@ def describe(df:pd.DataFrame, *, params_digi:int=4, tstat_digi:int=2):
     # only include `float` dtype
     df = df.select_dtypes(include='float')
 
+    # columns contain all NaNs value
+    not_all_nan_cols = df.columns[~df.isnull().all()].to_list()
+
     for col in df.columns.to_list():
         des = stats.describe(df[col], nan_policy='omit')
-        ttest = stats.ttest_1samp(df[col],0,nan_policy='omit')
-        parts = {
-            'Count': '{}'.format(int(des.nobs)),
-            'Mean': params_format.format(des.mean),
-            'SD': params_format.format(np.sqrt(des.variance)),
-            # 'var': params_format.format(des.variance),
-            'Min': params_format.format(des.minmax[0]),
-            '5%': params_format.format(df[col].quantile(0.05)),
-            '25%': params_format.format(df[col].quantile(0.25)),
-            '50%': params_format.format(df[col].quantile(0.50)),
-            '75%': params_format.format(df[col].quantile(0.75)),
-            '95%': params_format.format(df[col].quantile(0.95)),
-            'Max': params_format.format(des.minmax[1]),
-            'Skew': params_format.format(des.skewness),
-            'Kurt': params_format.format(des.kurtosis),
-            'T-stat': tstat_format.format(ttest[0]),
-            'P-val': tstat_format.format(ttest[1])
-        }
-        result_list.append(parts)
-        result = pd.DataFrame(result_list).T
+
+        if col in not_all_nan_cols:
+            ttest = stats.ttest_1samp(df[col],0,nan_policy='omit')
+            parts = {
+                'Count': '{}'.format(int(des.nobs)),
+                'Mean': params_format.format(des.mean),
+                'SD': params_format.format(np.sqrt(des.variance)),
+                # 'var': params_format.format(des.variance),
+                'Min': params_format.format(des.minmax[0]),
+                '5%': params_format.format(df[col].quantile(0.05)),
+                '25%': params_format.format(df[col].quantile(0.25)),
+                '50%': params_format.format(df[col].quantile(0.50)),
+                '75%': params_format.format(df[col].quantile(0.75)),
+                '95%': params_format.format(df[col].quantile(0.95)),
+                'Max': params_format.format(des.minmax[1]),
+                'Skew': params_format.format(des.skewness),
+                'Kurt': params_format.format(des.kurtosis),
+                'T-stat': tstat_format.format(ttest[0]),
+                'P-val': tstat_format.format(ttest[1])
+            }
+            result_list.append(parts)
+        else:
+            parts = {
+                'Count': '{}'.format(int(des.nobs)),
+                'Mean': np.NaN, 'SD': np.NaN, 'Min': np.NaN, '5%': np.NaN, '25%': np.NaN, '50%': np.NaN, '75%': np.NaN,
+                '95%': np.NaN, 'Max': np.NaN, 'Skew': np.NaN, 'Kurt': np.NaN, 'T-stat': np.NaN, 'P-val':np.NaN,
+            }
+            result_list.append(parts)
+
+    result = pd.DataFrame(result_list).T
     result.columns = df.columns
-    return result.T
+    return result.T.fillna('')
 
 
 def check_ptable(data, *, threshold=None, star=False, columns=None, count=False, digi=None):
