@@ -168,6 +168,12 @@ def cumulative_ret(df:pd.DataFrame, step_forward, shift_back=False):
         return cum_ret
 
 
+def show_all(df:pd.DataFrame):
+    from IPython.display import display
+    with pd.option_context('display.max_rows', 1000, 'display.max_columns', 100):
+        display(df)
+
+
 def split_star_table(df:pd.DataFrame, cols = []):
 
     if cols == []:
