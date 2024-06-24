@@ -14,6 +14,7 @@ def bond_col_cleaning(col_list, prefix=''):
             result.append(prefix + text[0])
     return result
 
+
 def str_to_years(term):
     if term == '0y':
         result = 1/365
@@ -30,6 +31,18 @@ def str_to_years(term):
 
 # 输入可以是DataFrame也可以是column
 def col_to_years(col_list):
+    """Convert the string of maturity columns to a list of float maturity terms
+
+    Parameters
+    ----------
+    col_list : DataFrame or list
+        DataFrame of columns of DataFrame to convert
+
+    Returns
+    -------
+    list
+        list of float maturitiy terms
+    """
     return [str_to_years(term) for term in col_list]
 
 
@@ -42,6 +55,13 @@ def select_term(col_list, min_term, max_term):
     return result
 
 
+def yield_curve_interp(df, date, term):
+
+    assert date in df.index # 确保date在DatetimeIndex中
+
+    return np.interp(term, col_to_years(df), df.loc[date].tolist())
+
+
 # Diebold-Li 2006 Model
 def b2_coeff(tau, lambd):
     return (1 - np.exp(-lambd*tau)) / (lambd*tau)
@@ -50,9 +70,11 @@ def b2_coeff(tau, lambd):
 def b3_coeff(tau, lambd):
     return b2_coeff(tau, lambd) - np.exp(-lambd*tau)
 
+
 def dl_model(tau, lambd, b1, b2, b3):
     y = b1 + b2*b2_coeff(tau, lambd) + b3*b3_coeff(tau, lambd)
     return y
+
 
 def dl_objfunc(params, tau, y_obse):
     b1, b2, b3, lambd = params
