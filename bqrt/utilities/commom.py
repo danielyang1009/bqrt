@@ -33,6 +33,10 @@ def describe(df:pd.DataFrame, *, params_digi:int=4, tstat_digi:int=2):
     params_format = '{{:.{}f}}'.format(params_digi)
     tstat_format = '{{:.{}f}}'.format(tstat_digi)
 
+    # deal with pd.Series
+    if isinstance(df, pd.Series):
+        df = df.to_frame()
+
     # only include `float` dtype
     df = df.select_dtypes(include='float')
 
@@ -50,11 +54,13 @@ def describe(df:pd.DataFrame, *, params_digi:int=4, tstat_digi:int=2):
                 'SD': params_format.format(np.sqrt(des.variance)),
                 # 'var': params_format.format(des.variance),
                 'Min': params_format.format(des.minmax[0]),
+                '1%': params_format.format(df[col].quantile(0.01)),
                 '5%': params_format.format(df[col].quantile(0.05)),
                 '25%': params_format.format(df[col].quantile(0.25)),
                 '50%': params_format.format(df[col].quantile(0.50)),
                 '75%': params_format.format(df[col].quantile(0.75)),
                 '95%': params_format.format(df[col].quantile(0.95)),
+                '99%': params_format.format(df[col].quantile(0.99)),
                 'Max': params_format.format(des.minmax[1]),
                 'Skew': params_format.format(des.skewness),
                 'Kurt': params_format.format(des.kurtosis),
@@ -202,3 +208,10 @@ def cp_plot(df:pd.DataFrame, figsize=(8,4)):
     """
 
     (df+1).cumprod().plot(figsize=figsize)
+
+
+def two_list(alist:list, blist:list, opt_type):
+
+    # assert opt_type in ['describe', 'intersection', 'nota', 'notb',]
+
+    pass
