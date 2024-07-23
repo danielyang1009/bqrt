@@ -99,3 +99,21 @@ def dl_optimization(df:pd.DataFrame, init_params=[]):
         result.append([date,b1,b2,b3,lambd,sucess])
 
     return result
+
+
+def strip_credit_rating(input_string:str, allowed_chars=['A', 'B', 'C', '+', '-']):
+    """strip credit rating full name and keep only rating characters like 'AAA' etc
+
+    Parameters
+    ----------
+    input_string : str
+        bond credit rating full name
+    allowed_chars : list, optional
+        characters to keep, by default ['A', 'B', 'C', '+', '-']
+
+    Returns
+    -------
+    str
+        rating characters
+    """
+    return ''.join([char for char in input_string if char in allowed_chars])

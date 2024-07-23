@@ -210,8 +210,17 @@ def cp_plot(df:pd.DataFrame, figsize=(8,4)):
     (df+1).cumprod().plot(figsize=figsize)
 
 
-def two_list(alist:list, blist:list, opt_type):
+def first_notna_index(df:pd.DataFrame):
+    """print first row index that is notna
 
-    # assert opt_type in ['describe', 'intersection', 'nota', 'notb',]
+    Parameters
+    ----------
+    df : pd.DataFrame
+        input DataFrame
 
-    pass
+    Returns
+    -------
+    pd.Series
+        return index of first notna row
+    """
+    return df.apply(lambda col: col.first_valid_index())
