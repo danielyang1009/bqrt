@@ -148,7 +148,7 @@ def check_ptable(data, *, threshold=None, star=False, columns=None, count=False,
         result[col] = ptable[col]
     return result
 
-
+# TODO
 def cumulative_ret(df:pd.DataFrame, step_forward, shift_back=False):
     # 计算累计收益
     # 宽表，列为资产日月收益率，计算多期的累计收益

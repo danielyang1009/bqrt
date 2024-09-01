@@ -67,11 +67,11 @@ def show_sig_only(s):
     if 'adj-r2' in s.columns:
         r2 = show_coe_only(s[['adj-r2']])
         s = show_coe_only(s).drop(columns=['adj-r2'])
-        s = s[s.applymap(lambda x: x[-1]=='*')].fillna('')
+        s = s[s.map(lambda x: x[-1]=='*')].fillna('')
         s = s.merge(r2,left_index=True,right_index=True,how='left')
     else:
         s = show_coe_only(s)
-        s = s[s.applymap(lambda x: x[-1]=='*')].fillna('')
+        s = s[s.map(lambda x: x[-1]=='*')].fillna('')
     return s
 
 
