@@ -9,9 +9,10 @@ import pandas as pd
 
 
 # 其中包含''空的行
+# 对bq.show_coe_only的结果进行统计
 def show_ts_stat(df:pd.DataFrame, digi=4):
 
-    result = pd.DataFrame(index=['***','**','*','sig','not_sig','total','avg','ttl_avg'], columns=df.columns, dtype=str)
+    result = pd.DataFrame(index=['***','**','*','sig','not_sig','total','avg_coef','ttl_avg_coef'], columns=df.columns, dtype=str)
 
     for col in df.columns:
         three_star = (df[col].apply(lambda x: x[-3:] == '***')).sum().sum()
@@ -32,9 +33,9 @@ def show_ts_stat(df:pd.DataFrame, digi=4):
 
     float_df = strip_stars(df)
     mean = float_df.mean().round(digi).astype(str)
-    result.loc['avg'] = mean
-    result.loc[['avg','ttl_avg'],'total'] = ''
-    result.loc['ttl_avg',result.columns[0]] = '{:.4f}'.format(round(float_df.stack().mean(),digi))
+    result.loc['avg_coef'] = mean
+    result.loc[['avg_coef','ttl_avg_coef'],'total'] = ''
+    result.loc['ttl_avg_coef',result.columns[0]] = '{:.4f}'.format(round(float_df.stack().mean(),digi))
 
     return result.fillna('')
 
@@ -42,15 +43,7 @@ def show_ts_stat(df:pd.DataFrame, digi=4):
 # 去除结果中的星，并转化为float格式
 def strip_stars(df:pd.DataFrame):
 
-    return df.applymap(lambda x: x.strip('*')).replace('',np.nan).astype('float')
-
-
-# 可移除，功能放在common中的count star
-def count_sig_col(data, var):
-
-    assert isinstance(data, pd.DataFrame), 'data shall be pd.DataFrame'
-    sig_count = sum([i=='*' for i in data[var].str[-1]])
-    return sig_count
+    return df.map(lambda x: x.strip('*')).replace('',np.nan).astype('float')
 
 
 # 输入为singl_xvar_ts与multi_xvar_ts的结果（包含打星的系数和t值）

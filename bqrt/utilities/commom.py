@@ -148,6 +148,7 @@ def check_ptable(data, *, threshold=None, star=False, columns=None, count=False,
         result[col] = ptable[col]
     return result
 
+
 # TODO
 def cumulative_ret(df:pd.DataFrame, step_forward, shift_back=False):
     # 计算累计收益
@@ -178,21 +179,6 @@ def show_all(df:pd.DataFrame):
     from IPython.display import display
     with pd.option_context('display.max_rows', 1000, 'display.max_columns', 100):
         display(df)
-
-
-def split_star_table(df:pd.DataFrame, cols = []):
-
-    if cols == []:
-        old_cols = df.columns
-    new_cols = sum([[col, col+'_'] for col in old_cols])
-
-    result = pd.DataFrame(index= df.index, columns=new_cols)
-
-    for col in old_cols:
-        pass
-
-
-    return result
 
 
 def cp_plot(df:pd.DataFrame, figsize=(8,4)):
