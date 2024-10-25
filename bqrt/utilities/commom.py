@@ -133,10 +133,10 @@ def check_ptable(data, *, threshold=None, star=False, columns=None, count=False,
     # 注意问题：如0.103在数字只有**，但一旦round(2)之后变为0.1那么就可能是***
     # 不能先round 再打星
     if star == True and digi == None:
-        ptable = ptable.applymap(lambda x: str(x)+''.join(['*' for t in [.01, .05, .1] if x<=t]))
+        ptable = ptable.map(lambda x: str(x)+''.join(['*' for t in [.01, .05, .1] if x<=t]))
 
     if star == True and digi != None:
-        ptable = ptable.applymap(lambda x: '{:.{}f}'.format(x,digi) + ''.join(['*' for t in [.01, .05, .1] if x<=t]))
+        ptable = ptable.map(lambda x: '{:.{}f}'.format(x,digi) + ''.join(['*' for t in [.01, .05, .1] if x<=t]))
 
     if digi != None:
         ptable = ptable.round(digi)

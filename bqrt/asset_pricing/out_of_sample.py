@@ -94,7 +94,7 @@ def pred_reg(data, yvar_list, xvar_list, scheme, window, *, benchmark=None, inte
                 reg_pred = OLS(y_train, X_train, missing='drop').fit()
                 # 当y输入为超额收益时，预测结果也为超额收益
                 y_pred = reg_pred.predict(X_test)
-                s.loc[end+1, yvar+'_pred'] = y_pred[0]
+                s.loc[end+1, yvar+'_pred'] = y_pred.iloc[0]
 
                 # 可以选择不计算benchmark
                 if benchmark is not None:
@@ -116,7 +116,7 @@ def pred_reg(data, yvar_list, xvar_list, scheme, window, *, benchmark=None, inte
 
                         reg_bench = OLS(y_train, X_train_bm, missing='drop').fit()
                         y_pred_bm = reg_bench.predict(X_test_bm)
-                        s.loc[end+1, yvar+'_bench'] = y_pred_bm[0]
+                        s.loc[end+1, yvar+'_bench'] = y_pred_bm.iloc[0]
 
         s = s.set_index('date')
         to_add = s.loc[:,s.columns.str.contains(yvar)]
@@ -202,11 +202,11 @@ def cw_table(cw_tbl, one_side=True):
         reg = smf.ols('{} ~ 1'.format(yvar), data=cw_tbl).fit()
         # print(reg.tvalues[0])
         # print(type(reg.tvalues[0]))
-        cw_sig.loc[yvar,'tval'] = reg.tvalues[0]
+        cw_sig.loc[yvar,'tval'] = reg.tvalues.iloc[0]
         if one_side == True:
-            cw_sig.loc[yvar,'pval'] = reg.pvalues[0] / 2
+            cw_sig.loc[yvar,'pval'] = reg.pvalues.iloc[0] / 2
         else:
-            cw_sig.loc[yvar,'pval'] = reg.pvalues[0]
+            cw_sig.loc[yvar,'pval'] = reg.pvalues.iloc[0]
 
     return cw_sig
 
