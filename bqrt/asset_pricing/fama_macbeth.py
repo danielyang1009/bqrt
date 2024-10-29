@@ -3,6 +3,11 @@ Fama-Macbeth Rgression
 ----------------------
 
 Run single or multiple (from `reglist`) fama-macbeth regression and print results. Results are organized in conventional financial research journal format with different models in columns and factors in rows, also mark with asterisks (stars) for significant level.
+
+The DataFrame is structured in a long format, with each row representing a single asset for a given day, containing all relevant variables.
+
+
+Notice: NaN values will cause "SVD Did Not converge in Linear Least Squares Error".
 """
 
 import numpy as np
@@ -457,7 +462,7 @@ def desc_lambda(lambd, HAC:bool=False, maxlags:int=None):
         for var in xvar_list:
             # calculate individual Newey-West adjusted standard error using `smf.ols`
             reg = smf.ols('{} ~ 1'.format(var), data=lambd).fit(cov_type='HAC', cov_kwds={'maxlags':maxlags}, use_t=True)
-            std_error.append(reg.bse[0])
+            std_error.append(reg.bse.iloc[0])
         s['std_error'] = std_error
     # nonrobust estimators
     else:
@@ -536,7 +541,7 @@ def fm_summary(s, HAC=False, maxlags:int=None, params_digi:int=4, tstat_digi:int
 
     # add r^2 and adj-R^2
     r2 = pd.DataFrame([i.mean() for i in s['r2']], index=['({})'.format(i) for i in range(1,total_reg_no +1)])
-    r2 = r2.applymap(lambda x: '{:.{prec}f}'.format(x, prec=params_digi))
+    r2 = r2.map(lambda x: '{:.{prec}f}'.format(x, prec=params_digi))
     summary_tbl = (pd.concat([summary_tbl.T, r2], axis=1)).T
 
     # replace NaN with whitespace for readability
