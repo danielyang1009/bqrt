@@ -210,3 +210,9 @@ def first_notna_index(df:pd.DataFrame):
         return index of first notna row
     """
     return df.apply(lambda col: col.first_valid_index())
+
+
+def keep_chinese_char(string):
+    import re
+
+    return re.sub(r'[^\u4e00-\u9fa5]', '', string)
