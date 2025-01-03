@@ -81,6 +81,35 @@ def describe(df:pd.DataFrame, *, params_digi:int=4, tstat_digi:int=2):
     return result.T.fillna('')
 
 
+def info(df:pd.DataFrame):
+    """
+    Create a DataFrame that contains following info of each column of DataFrame (or Series): column names, data types, nubmer of notnull entries, number of total entries, number of unique entries
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame object to be summarized
+
+    Returns
+    -------
+    _type_
+        _description_
+    """
+
+    if isinstance(df, pd.Series):
+        df = df.to_frame()
+
+    summary = pd.DataFrame({
+        'columns': df.columns, # 列名称
+        'dtype': [df[col].dtype for col in df.columns], # 列dtype
+        'notnull': [df[col].notnull().sum() for col in df.columns], # 列非空数量
+        'total': [len(df[col]) for col in df.columns], # 列长度
+        'unique': [df[col].nunique() for col in df.columns], # 列unique数量
+    })
+
+    return summary
+
+
 def check_ptable(data, *, threshold=None, star=False, columns=None, count=False, digi=None):
     """
     Check p-value table
