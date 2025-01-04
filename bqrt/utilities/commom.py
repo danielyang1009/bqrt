@@ -102,11 +102,11 @@ def info(df:pd.DataFrame):
     summary = pd.DataFrame({
         'columns': df.columns, # 列名称
         'dtype': [df[col].dtype for col in df.columns], # 列dtype
+        'isnull': [df[col].isnull().sum() for col in df.columns], # 空数量
         'notnull': [df[col].notnull().sum() for col in df.columns], # 列非空数量
         'total': [len(df[col]) for col in df.columns], # 列长度
         'unique': [df[col].nunique() for col in df.columns], # 列unique数量
     })
-
     return summary
 
 
