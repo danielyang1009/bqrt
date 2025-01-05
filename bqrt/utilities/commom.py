@@ -107,6 +107,27 @@ def info(df:pd.DataFrame):
         'total': [len(df[col]) for col in df.columns], # 列长度
         'unique': [df[col].nunique() for col in df.columns], # 列unique数量
     })
+
+    summary['isnull_pct'] = (summary['isnull'] / summary['total']).map('{:.2f}'.format)
+    summary['notnull_pct'] = (summary['notnull'] / summary['total']).map('{:.2f}'.format)
+
+    summary = summary[['columns','dtype','isnull','isnull_pct','notnull','notnull_pct','total','unique']]
+
+    # first_valid_index结果，即第一个非空值
+    fvi_result = []
+    for col in df.columns:
+        fvi = df[col].first_valid_index()
+        total = len(df.loc[fvi:,col])
+        isnull = df.loc[fvi:,col].isnull().sum()
+        isnull_pct = '{:.2f}'.format(isnull / total)
+        notnull = df.loc[fvi:,col].notnull().sum()
+        notnull_pct = '{:.2f}'.format(notnull / total)
+        fvi_result.append([col,isnull,isnull_pct,notnull,notnull_pct,total])
+
+    fvi_result = pd.DataFrame(fvi_result, columns=['columns','fvi_in','fvi_in_pct','fvi_nn','fvi_nn_pct','fvi_ttl'])
+
+    summary = summary.merge(fvi_result, how='left', left_on='columns', right_on='columns')
+
     return summary
 
 
