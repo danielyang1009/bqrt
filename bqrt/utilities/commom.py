@@ -131,6 +131,47 @@ def info(df:pd.DataFrame):
     return summary
 
 
+def compare_dfs(old_df, new_df):
+    """
+    Comparing two identical rows and columns pd.DataFrame, return different rows.
+
+    note: rows with np.nan value will be returned, since np.nan is not equal to itself.
+
+    Parameters
+    ----------
+    old_df : _type_
+        _description_
+    new_df : _type_
+        _description_
+
+    Returns
+    -------
+    _type_
+        _description_
+
+    Raises
+    ------
+    ValueError
+        _description_
+    ValueError
+        _description_
+    """
+
+    if old_df.shape != new_df.shape:
+        raise ValueError("DataFrames must have the same shape")
+
+    if not all(old_df.columns == new_df.columns):
+        raise ValueError("DataFrames must have the same columns")
+
+    # masking element-wise different
+    element_mask = old_df != new_df
+    # getting a series with True and False values, True indicating a row with different value
+    row_mask = element_mask.any(axis=1)
+    # returning result, only different rows
+
+    return old_df[row_mask]
+
+
 def check_ptable(data, *, threshold=None, star=False, columns=None, count=False, digi=None):
     """
     Check p-value table
