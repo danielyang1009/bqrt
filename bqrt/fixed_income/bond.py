@@ -14,7 +14,7 @@ def bond_col_cleaning(col_list, prefix=''):
             result.append(prefix + text[0])
     return result
 
-
+# 将字符期限转换为实际按年计算的期限 '3m' -> 0.25
 def str_to_years(term):
     if term == '0y':
         result = 1/365
@@ -30,6 +30,7 @@ def str_to_years(term):
 
 
 # 输入可以是DataFrame也可以是column
+# 使用`str_to_years`将所有DataFrame中的列转换为实际期限（年）
 def col_to_years(col_list):
     """Convert the string of maturity columns to a list of float maturity terms
 
@@ -46,7 +47,7 @@ def col_to_years(col_list):
     return [str_to_years(term) for term in col_list]
 
 
-# in years, including endpoints
+# 使用实际期限（年），选择期限范围（字符，如3m），包含端点
 def select_term(col_list, min_term, max_term):
     result = []
     for term in col_list:
