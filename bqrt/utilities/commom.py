@@ -307,3 +307,19 @@ def keep_chinese_char(string):
     import re
 
     return re.sub(r'[^\u4e00-\u9fa5]', '', string)
+
+
+# 清洗WIND中通过行情序列导出的excel文件
+# 首行为指标标识列，第二行为列名称，倒数两行为WIND水印
+def clean_wind_excel(file_path):
+    df = pd.read_excel(file_path)
+    df.columns = df.iloc[0]
+    df = df.iloc[1:-2].reset_index(drop=True)
+
+    # if 列中有'时间'，那么将该列设置为datetime，并设置为index
+    if '时间' in df.columns:
+        df['时间'] = df['时间'].astype('datetime64[ns]')
+        df = df.rename(columns={'时间':'date'})
+        df = df.set_index(['date'])
+    df = df.astype(float)
+    return df
