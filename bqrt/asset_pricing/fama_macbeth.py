@@ -108,7 +108,7 @@ def np_ols(data, yvar, xvar_list, keep_r2=False):
 
     Notes
     -----
-    Under the hood, pseudoinverse is calculated using singular value decomposition (SVD), As any matrix can be decomposite as $A=U \Sigma V^T$, then pseudoinverse of matrix $A$ is $A^+ = V \Sigma^+ U^T$. `rcond` is used to set cut-off ratio for small singular values of in $\Sigma$. Setting `rcond=None` to silence the warning and use machine prcision as rcond parameter.
+    Under the hood, pseudoinverse is calculated using singular value decomposition (SVD), As any matrix can be decomposite as $A=U \\Sigma V^T$, then pseudoinverse of matrix $A$ is $A^+ = V \\Sigma^+ U^T$. `rcond` is used to set cut-off ratio for small singular values of in $\\Sigma$. Setting `rcond=None` to silence the warning and use machine prcision as rcond parameter.
 
     [What does the rcond parameter of numpy.linalg.pinv do?](https://stackoverflow.com/questions/53949202/what-does-the-rcond-parameter-of-numpy-linalg-pinv-do)
 
@@ -359,7 +359,7 @@ def fm_two_pass_reglist(data, reglist, time='date', entity='symbol', window=None
     """
     Running multiple two-pass fama-macbeth regression from `reglist`, return time series of lambdas
 
-    standard fama-macbeth two-pass regression: 1) get estimated beta_{t} from `r_{t} ~ beta_{t} lambda_{t}` 2) get estimated lambda_{t+1} from `r_{t+1} ~ beta{t} \lambda{t+1}`
+    standard fama-macbeth two-pass regression: 1) get estimated beta_{t} from `r_{t} ~ beta_{t} lambda_{t}` 2) get estimated lambda_{t+1} from `r_{t+1} ~ beta{t} \\lambda{t+1}`
 
     Need to make sure last formula in `reglist` contains all x variables, which is determing maximum number of x variables.
 
@@ -379,7 +379,7 @@ def fm_two_pass_reglist(data, reglist, time='date', entity='symbol', window=None
     Returns
     -------
     summary: dict
-        with keys of 'fp_table', 'lambda', 'r2', accessing `fp_table` result from first item of reglist by `summary['fp_table][0]`
+        with keys of 'fp_table', 'lambda', 'r2' and value as list, accessing `fp_table` result from first item ( regression) of reglist by `summary['fp_table'][0]`
     """
 
     from tqdm.notebook import tqdm
@@ -476,7 +476,7 @@ def desc_lambda(lambd, HAC:bool=False, maxlags:int=None):
     return s
 
 
-def fm_summary(s, HAC=False, maxlags:int=None, params_digi:int=4, tstat_digi:int=2):
+def fm_summary(s, HAC=False, maxlags:int=None, params_digi:int=4, params_scale:float=1, tstat_digi:int=2, r2_pct:bool=False, r2_digi:int=4):
     """
     Taking results from `fm_2nd_pass_reglist` and `fm_two_pass_reglist` returning financial research journal format summary table. Results can be reported in either nonrobust or HAC estimators.
 
@@ -485,13 +485,19 @@ def fm_summary(s, HAC=False, maxlags:int=None, params_digi:int=4, tstat_digi:int
     s : dictionary
         dictionary of results from `fm_2nd_pass_reglis` or `fm_two_pass_reglist` funtion
     HAC : bool, optional
-        using HAC estimator or not, need to specify `maxlags` if True, i.e `maxlags=8`
+        using HAC estimator or not, need to specify `maxlags` if True, i.e `maxlags=8`, by default False
     maxlags : int, optional
-        maximum lags for HAC estimator
-    params_format : str, optional
-        number of digits to keep for params (coefficient), in this case mean of time series lambdas, by default '{:.4f}'
-    tstat_format : str, optional
-        number of digits to keep for t-statistics, adding parentheses '(x.xx)' format for better readability, by default '({:.2f})'
+        maximum lags for HAC estimator, by default None
+    params_digi : int, optional
+        number of digits to keep for params (coefficient), in this case mean of time series lambdas, by default '{:.4f}', by default 4
+    params_scale : float, optional
+        whether to scale parmas: eg. if params_scale = 100 (in percent), if params_scale=10000 (in bps), by default 1
+    tstat_digi : int, optional
+        number of digits to keep for t-statistics, adding parentheses '(x.xx)' format for better readability, by default '({:.2f})', by default 2
+    r2_pct : bool, optional
+        whether to show r2 and adj-r2 in percentage, by default False
+    r2_digi : int, optional
+        number of digis to keep for r2, by default 4
 
     Returns
     -------
@@ -522,7 +528,7 @@ def fm_summary(s, HAC=False, maxlags:int=None, params_digi:int=4, tstat_digi:int
         for var in d.index.to_list():
             # getting p-values to determine significant level
             pval = d.loc[var, 'pval']
-            param = '{:.{prec}f}'.format(d.loc[var, 'mean'], prec=params_digi)
+            param = '{:.{prec}f}'.format(d.loc[var, 'mean']*params_scale, prec=params_digi)
             # add significant level star mark to params
             if (pval <= 0.1) & (pval > 0.05):
                 param = param + '*'
@@ -540,8 +546,12 @@ def fm_summary(s, HAC=False, maxlags:int=None, params_digi:int=4, tstat_digi:int
     summary_tbl.index = sum([[var, ''.format(var)] for var in xvar_list], [])
 
     # add r^2 and adj-R^2
+    if r2_pct is True:
+        r2_sacle = 100
+    else:
+        r2_sacle = 1
     r2 = pd.DataFrame([i.mean() for i in s['r2']], index=['({})'.format(i) for i in range(1,total_reg_no +1)])
-    r2 = r2.map(lambda x: '{:.{prec}f}'.format(x, prec=params_digi))
+    r2 = r2.map(lambda x: '{:.{prec}f}'.format(x*r2_sacle, prec=r2_digi))
     summary_tbl = (pd.concat([summary_tbl.T, r2], axis=1)).T
 
     # replace NaN with whitespace for readability

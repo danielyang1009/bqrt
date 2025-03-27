@@ -92,8 +92,8 @@ def info(df:pd.DataFrame):
 
     Returns
     -------
-    _type_
-        _description_
+    pd.DataFrame
+        DataFrame object of all sumarized results
     """
 
     if isinstance(df, pd.Series):
