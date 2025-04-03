@@ -145,3 +145,37 @@ def ts_reg(yvar_data, yvar_list, xvar_data, xvar_list, controls=[], *, intercept
 
     s.index = sum([[i,''] for i in yvar_data[yvar_list]],[])
     return s
+
+
+def chow_test(rss_full:float, rss_1:float, rss_2:float, n:int, k:int):
+    """
+    Chow test, use to test for the presence of a structural break, the Chow test is often used to determine whether the independent variables have different impacts on different subgroups of the population. The testThe test statistic follows the F-distribution with k and N-2k degrees of freedom.
+
+    Parameters
+    ----------
+    rss_full : float
+        RSS (residual sum of squares) of full sample
+    rss_1 : float
+        RSS of subsample 1
+    rss_2 : float
+        RSS of subsample 2
+    n : int
+        number of observation of full sample
+    k : int
+        number of parameters, including intercept
+
+    Returns
+    -------
+    F_chow: float
+        test statistic of Chow test
+    p_value: float
+        p value of test statistic
+    """
+
+
+    from scipy.stats import f
+
+    F_chow = ((rss_full - (rss_1 + rss_2)) / k) / ((rss_1 + rss_2) / (n - 2 * k))
+    p_value = 1 - f.cdf(F_chow, k, n - 2 * k)
+
+    return F_chow, p_value
