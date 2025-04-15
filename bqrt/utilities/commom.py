@@ -100,7 +100,7 @@ def info(df:pd.DataFrame):
         df = df.to_frame()
 
     summary = pd.DataFrame({
-        'columns': df.columns, # 列名称
+        'col_name': df.columns, # 列名称
         'dtype': [df[col].dtype for col in df.columns], # 列dtype
         'isnull': [df[col].isnull().sum() for col in df.columns], # 空数量
         'notnull': [df[col].notnull().sum() for col in df.columns], # 列非空数量
@@ -111,7 +111,7 @@ def info(df:pd.DataFrame):
     summary['isnull_pct'] = (summary['isnull'] / summary['total']).map('{:.2f}'.format)
     summary['notnull_pct'] = (summary['notnull'] / summary['total']).map('{:.2f}'.format)
 
-    summary = summary[['columns','dtype','isnull','isnull_pct','notnull','notnull_pct','total','unique']]
+    summary = summary[['col_name','dtype','isnull','isnull_pct','notnull','notnull_pct','total','unique']]
 
     # first_valid_index结果，即第一个非空值
     fvi_result = []
@@ -122,11 +122,13 @@ def info(df:pd.DataFrame):
         isnull_pct = '{:.2f}'.format(isnull / total)
         notnull = df.loc[fvi:,col].notnull().sum()
         notnull_pct = '{:.2f}'.format(notnull / total)
-        fvi_result.append([col,isnull,isnull_pct,notnull,notnull_pct,total])
+        zero = df[df[col] == 0.0].shape[0]
+        zero_pct = '{:.2f}'.format(zero / total)
+        fvi_result.append([col,isnull,isnull_pct,notnull,notnull_pct,total,zero,zero_pct])
 
-    fvi_result = pd.DataFrame(fvi_result, columns=['columns','fvi_in','fvi_in_pct','fvi_nn','fvi_nn_pct','fvi_ttl'])
+    fvi_result = pd.DataFrame(fvi_result, columns=['col_name','fvi_in','fvi_in_pct','fvi_nn','fvi_nn_pct','fvi_ttl','zero','zero_pct'])
 
-    summary = summary.merge(fvi_result, how='left', left_on='columns', right_on='columns')
+    summary = summary.merge(fvi_result, how='left', left_on='col_name', right_on='col_name')
 
     return summary
 

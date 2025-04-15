@@ -7,7 +7,7 @@ Input/Output utility tools
 
 import pandas as pd
 
-# 读取filepath单个zip文件，并将里面的filetype文件合并
+# 读取filepath单个zip文件，即filepath为zip文件路径，并将zip文件中的全部filetype文件合并
 def read_zip(filepath, filetype):
 
     from zipfile import ZipFile
