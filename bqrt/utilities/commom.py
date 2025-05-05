@@ -268,10 +268,27 @@ def cumulative_ret(df:pd.DataFrame, step_forward, shift_back=False):
         return cum_ret
 
 
+# 对Series进行缩尾
+def winsorize_sr(sr, quantile):
+    lower = sr.quantile(quantile)
+    upper = sr.quantile(1 - quantile)
+    return sr.clip(lower=lower, upper=upper)
+
+
+# 对整个DataFrame进行缩尾
+def winsorize_df(df, quantile):
+    return df.apply(lambda col: winsorize_sr(col, quantile))
+
+
 def show_all(df:pd.DataFrame):
     from IPython.display import display
     with pd.option_context('display.max_rows', 1000, 'display.max_columns', 100):
         display(df)
+
+
+def add_stars(p_val:float, digi=2):
+    stars = ''.join(['*' for i in [0.01, 0.05, 0.1] if p_val<=i])
+    return '{:.{prec}f}'.format(p_val, prec=digi) + stars
 
 
 def cp_plot(df:pd.DataFrame, figsize=(8,4)):
